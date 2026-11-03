@@ -3,7 +3,11 @@
  * Los cambios quedan en esta página hasta tocar "Guardar cambios": ahí se manda la
  * lista entera al Worker, que la limpia y la guarda. Las fotos se achican acá,
  * antes de subirlas, para que el catálogo abra rápido con datos móviles.
+ *
+ * Es un módulo para poder usar colores.js, el mismo que usa el panel del curso.
  */
+import { DE_LA_CLASE, PALETAS, coloresLegibles, paletaDeFoto } from './colores.js';
+
 (function () {
     var WORKER = window.Catalogo.WORKER;
     var LS_CODIGO = 'catalogos:codigo';
@@ -15,6 +19,9 @@
     var sinGuardar = false;
     var editando = -1;
     var fotoFicha = '';
+    var CENTRO = { x: 50, y: 50, zoom: 1 };
+    var encuadreFicha = CENTRO;
+    var aspecto = null; // cómo se ve: null es el diseño con el que se armó
 
     function guardarLocal(clave, valor) {
         try {
@@ -58,6 +65,7 @@
                 codigo = c;
                 catalogo = cat;
                 productos = cat.productos.map(function (p) { return JSON.parse(JSON.stringify(p)); });
+                aspecto = cat.aspecto || null;
                 if ($('recordar').checked) guardarLocal(LS_CODIGO, c);
                 mostrarEditor();
             })
@@ -98,6 +106,7 @@
             var img = document.createElement('img');
             img.src = window.Catalogo.fotoSrc(p.foto);
             img.alt = '';
+            window.Catalogo.aplicarEncuadre(img, p.encuadre);
             caja.appendChild(img);
         } else {
             caja.textContent = p.foto ? '📁' : (p.emoji || '🛍️');
@@ -178,14 +187,21 @@
     function pintarFoto() {
         var vista = $('f-vista');
         vista.replaceChildren();
-        if (fotoFicha && fotoFicha.indexOf('w:') === 0) {
+        var subida = fotoFicha && fotoFicha.indexOf('w:') === 0;
+        if (subida) {
             var img = document.createElement('img');
             img.src = window.Catalogo.fotoSrc(fotoFicha);
             img.alt = '';
+            img.draggable = false;
+            window.Catalogo.aplicarEncuadre(img, encuadreFicha);
             vista.appendChild(img);
         } else {
             vista.textContent = fotoFicha ? '📁' : ($('f-emoji').value || '🛍️');
         }
+        // El encuadre, solo para las fotos subidas acá: las de la carpeta fotos/ no se ven desde el editor
+        vista.classList.toggle('movible', Boolean(subida));
+        $('f-encuadre').hidden = !subida;
+        $('f-zoom').value = encuadreFicha.zoom;
         $('f-sacar-foto').hidden = !fotoFicha;
         $('f-foto-estado').textContent = fotoFicha && fotoFicha.indexOf('w:') !== 0
             ? 'Es la de tu carpeta fotos/: ' + fotoFicha
@@ -201,6 +217,7 @@
         $('f-descripcion').value = p.descripcion;
         $('f-emoji').value = p.emoji;
         fotoFicha = p.foto;
+        encuadreFicha = p.encuadre ? { x: p.encuadre.x, y: p.encuadre.y, zoom: p.encuadre.zoom } : CENTRO;
         $('f-detalles').replaceChildren();
         (p.detalles || []).forEach(function (d) { filaDato(d[0], d[1]); });
         $('f-borrar').hidden = i < 0;
@@ -217,7 +234,47 @@
     $('f-mas-dato').addEventListener('click', function () { filaDato('', ''); });
     $('f-emoji').addEventListener('input', pintarFoto);
     $('f-precio').addEventListener('input', function (e) { e.target.value = e.target.value.replace(/\D/g, ''); });
-    $('f-sacar-foto').addEventListener('click', function () { fotoFicha = ''; pintarFoto(); });
+    $('f-sacar-foto').addEventListener('click', function () { fotoFicha = ''; encuadreFicha = CENTRO; pintarFoto(); });
+
+    /* ---------- El encuadre: arrastrar para mover, la barra para acercar ---------- */
+    function moverEncuadre(cambio) {
+        encuadreFicha = {
+            x: Math.min(100, Math.max(0, cambio.x)),
+            y: Math.min(100, Math.max(0, cambio.y)),
+            zoom: Math.min(3, Math.max(1, cambio.zoom)),
+        };
+        var img = $('f-vista').querySelector('img');
+        if (img) window.Catalogo.aplicarEncuadre(img, encuadreFicha);
+    }
+
+    var arrastre = null;
+    $('f-vista').addEventListener('pointerdown', function (e) {
+        if (!$('f-vista').querySelector('img')) return;
+        e.preventDefault(); // que arrastrar no seleccione texto
+        arrastre = { x: e.clientX, y: e.clientY, desde: encuadreFicha };
+        $('f-vista').setPointerCapture(e.pointerId);
+    });
+    $('f-vista').addEventListener('pointermove', function (e) {
+        if (!arrastre) return;
+        // Arrastrar a la derecha muestra lo que estaba a la izquierda: por eso se resta
+        var lado = $('f-vista').clientWidth;
+        var escala = 100 / lado / arrastre.desde.zoom;
+        moverEncuadre({
+            x: arrastre.desde.x - (e.clientX - arrastre.x) * escala,
+            y: arrastre.desde.y - (e.clientY - arrastre.y) * escala,
+            zoom: arrastre.desde.zoom,
+        });
+    });
+    ['pointerup', 'pointercancel'].forEach(function (tipo) {
+        $('f-vista').addEventListener(tipo, function () { arrastre = null; });
+    });
+    $('f-zoom').addEventListener('input', function (e) {
+        moverEncuadre({ x: encuadreFicha.x, y: encuadreFicha.y, zoom: Number(e.target.value) });
+    });
+    $('f-centrar').addEventListener('click', function () {
+        moverEncuadre(CENTRO);
+        $('f-zoom').value = 1;
+    });
 
     $('f-borrar').addEventListener('click', function (e) {
         var b = e.target;
@@ -254,6 +311,7 @@
             descripcion: $('f-descripcion').value.trim(),
             emoji: $('f-emoji').value.trim(),
             foto: fotoFicha,
+            encuadre: fotoFicha ? encuadreFicha : undefined,
             detalles: detalles,
         };
         if (editando >= 0) productos[editando] = producto;
@@ -264,9 +322,9 @@
     });
 
     /* La foto se achica a 1000 px y se sube apenas se elige; queda en el producto al tocar "Listo". */
-    function achicar(archivo) {
+    function achicar(archivo, lado) {
         return createImageBitmap(archivo, { imageOrientation: 'from-image' }).then(function (bmp) {
-            var escala = Math.min(1, 1000 / Math.max(bmp.width, bmp.height));
+            var escala = Math.min(1, (lado || 1000) / Math.max(bmp.width, bmp.height));
             var lienzo = document.createElement('canvas');
             lienzo.width = Math.round(bmp.width * escala);
             lienzo.height = Math.round(bmp.height * escala);
@@ -294,7 +352,7 @@
                 var tipo = esGif ? 'image/gif' : 'image/jpeg';
                 return pedir('/foto', { method: 'POST', headers: { 'Content-Type': tipo, 'X-Codigo': codigo }, body: blob });
             })
-            .then(function (r) { fotoFicha = r.foto; pintarFoto(); })
+            .then(function (r) { fotoFicha = r.foto; encuadreFicha = CENTRO; pintarFoto(); })
             .catch(function (error) { $('f-foto-estado').textContent = error.message || 'No se pudo subir la foto.'; })
             .finally(function () { $('f-listo').disabled = false; });
     });
@@ -363,6 +421,182 @@
         });
     });
 
+    /* ---------- Cómo se ve: nombre, WhatsApp, colores y foto de fondo ----------
+     * Lo elegido queda en "aspecto" y se guarda con "Guardar cambios", como los productos. Los
+     * colores que no se leen se ajustan solos, igual que en el panel del curso. */
+    var MAX_GIF_FONDO = 2560 * 1024;
+    var imagenFondo = '';
+    var archivoFondo = null;
+    var veloFondo = 0.55;
+    var respetarColores = false;
+    var coloresOriginales = null;
+    var siguientePaleta = 0;
+
+    function coloresElegidos() {
+        return { fondo: $('a-fondo').value, texto: $('a-texto').value, acento: $('a-acento').value };
+    }
+
+    function avisoColores(texto, conBoton) {
+        $('a-aviso').hidden = !texto;
+        $('a-aviso-texto').textContent = texto;
+        $('a-mis-colores').hidden = !conBoton;
+    }
+
+    function pintarMuestra() {
+        var elegidos = coloresElegidos();
+        elegidos.respetarColores = respetarColores;
+        var c = coloresLegibles(elegidos);
+        var muestra = $('a-muestra');
+        muestra.style.backgroundColor = c.fondo;
+        muestra.style.backgroundImage = imagenFondo ? 'url("' + window.Catalogo.fotoSrc(imagenFondo) + '")' : '';
+        $('a-velo-vista').style.background = c.fondo;
+        $('a-velo-vista').style.opacity = imagenFondo ? veloFondo : 0;
+        $('a-m-nombre').textContent = $('a-nombre').value || catalogo.nombre;
+        $('a-m-nombre').style.color = c.marca;
+        muestra.querySelector('.muestra-producto').style.color = c.texto;
+        $('a-m-precio').style.background = c.acento;
+        $('a-m-precio').style.color = c.sobreAcento;
+        $('a-m-boton').style.color = c.acento;
+        $('a-sacar-foto').hidden = !imagenFondo;
+        $('a-colores-foto').hidden = !archivoFondo;
+        return c;
+    }
+
+    /* Al soltar un color: si no se lee, se cambia en el selector mismo, y se puede volver atrás. */
+    function ajustarColores() {
+        if (respetarColores) return;
+        var elegidos = coloresElegidos();
+        var c = coloresLegibles(elegidos);
+        if (!c.avisos.length) return;
+        coloresOriginales = elegidos;
+        $('a-texto').value = c.texto;
+        $('a-acento').value = c.acento;
+        avisoColores(c.avisos.join(' ') + ' Ya está cambiado arriba y en la muestra.', true);
+        pintarMuestra();
+    }
+
+    function ponerColores(p) {
+        $('a-fondo').value = p.fondo;
+        $('a-texto').value = p.texto;
+        $('a-acento').value = p.acento;
+        respetarColores = false;
+        avisoColores('', false);
+        ajustarColores();
+        pintarMuestra();
+    }
+
+    function abrirAspecto() {
+        var a = aspecto || {};
+        $('a-nombre').value = a.nombre || catalogo.nombre;
+        $('a-whatsapp').value = (a.numero || '').replace(/^549/, '');
+        $('a-fondo').value = a.fondo || DE_LA_CLASE.fondo;
+        $('a-texto').value = a.texto || DE_LA_CLASE.texto;
+        $('a-acento').value = a.acento || DE_LA_CLASE.acento;
+        imagenFondo = a.imagen || '';
+        veloFondo = a.imagen ? a.velo : 0.55;
+        archivoFondo = null;
+        respetarColores = false;
+        coloresOriginales = null;
+        $('a-paleta').textContent = '';
+        $('a-foto-estado').textContent = '';
+        $('error-aspecto').textContent = '';
+        avisoColores('', false);
+        pintarMuestra();
+        $('aspecto').showModal();
+    }
+
+    $('abrir-aspecto').addEventListener('click', abrirAspecto);
+    $('a-cancelar').addEventListener('click', function () { $('aspecto').close(); });
+    $('form-aspecto').addEventListener('input', pintarMuestra);
+    ['a-fondo', 'a-texto', 'a-acento'].forEach(function (id) { $(id).addEventListener('change', ajustarColores); });
+    $('a-whatsapp').addEventListener('input', function (e) { e.target.value = e.target.value.replace(/\D/g, ''); });
+
+    $('a-sugerir').addEventListener('click', function () {
+        var p = PALETAS[siguientePaleta % PALETAS.length];
+        ponerColores(p);
+        $('a-paleta').textContent = p.nombre + ' · ' + ((siguientePaleta % PALETAS.length) + 1) + ' de ' + PALETAS.length + '. Tocá de nuevo para ver otra.';
+        siguientePaleta++;
+    });
+
+    $('a-mis-colores').addEventListener('click', function () {
+        if (!coloresOriginales) return;
+        respetarColores = true;
+        $('a-fondo').value = coloresOriginales.fondo;
+        $('a-texto').value = coloresOriginales.texto;
+        $('a-acento').value = coloresOriginales.acento;
+        avisoColores('Van tus colores tal cual: algunas partes van a costar leerse.', false);
+        pintarMuestra();
+    });
+
+    $('a-foto').addEventListener('change', function (e) {
+        var archivo = e.target.files[0];
+        e.target.value = '';
+        if (!archivo) return;
+        var esGif = archivo.type === 'image/gif';
+        if (esGif && archivo.size > MAX_GIF_FONDO) {
+            $('a-foto-estado').textContent = 'Ese GIF pesa más de 2,5 MB: probá con uno más corto o más chico.';
+            return;
+        }
+        $('a-foto-estado').textContent = 'Subiendo la foto…';
+        $('a-listo').disabled = true;
+        (esGif ? Promise.resolve(archivo) : achicar(archivo, 1600))
+            .then(function (blob) {
+                return pedir('/foto', { method: 'POST', headers: { 'Content-Type': esGif ? 'image/gif' : 'image/jpeg', 'X-Codigo': codigo }, body: blob });
+            })
+            .then(function (r) {
+                imagenFondo = r.foto;
+                archivoFondo = archivo;
+                $('a-foto-estado').textContent = '';
+                pintarMuestra();
+            })
+            .catch(function (error) { $('a-foto-estado').textContent = error.message || 'No se pudo subir la foto.'; })
+            .finally(function () { $('a-listo').disabled = false; });
+    });
+
+    $('a-sacar-foto').addEventListener('click', function () {
+        imagenFondo = '';
+        archivoFondo = null;
+        pintarMuestra();
+    });
+
+    $('a-colores-foto').addEventListener('click', function () {
+        if (!archivoFondo) return;
+        paletaDeFoto(archivoFondo).then(function (p) {
+            ponerColores(p);
+            $('a-paleta').textContent = 'Colores sacados de tu foto.';
+        });
+    });
+
+    $('a-original').addEventListener('click', function () {
+        aspecto = null;
+        marcar(true);
+        $('aspecto').close();
+        $('estado').textContent = 'Vuelve al diseño con el que se armó. Tocá Guardar cambios.';
+    });
+
+    $('form-aspecto').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var whatsapp = $('a-whatsapp').value;
+        if (whatsapp && !/^\d{10}$/.test(whatsapp)) {
+            $('error-aspecto').textContent = 'El WhatsApp son 10 números: la característica sin el 0 y el número sin el 15 (2215550000).';
+            return;
+        }
+        var c = pintarMuestra();
+        aspecto = {
+            nombre: $('a-nombre').value.trim(),
+            numero: whatsapp ? '549' + whatsapp : '',
+            fondo: c.fondo,
+            texto: c.texto,
+            acento: c.acento,
+            marca: c.marca,
+            sobreAcento: c.sobreAcento,
+            imagen: imagenFondo,
+            velo: imagenFondo ? veloFondo : 0,
+        };
+        marcar(true);
+        $('aspecto').close();
+    });
+
     /* ---------- Guardar ---------- */
     function marcar(cambio) {
         sinGuardar = cambio;
@@ -373,9 +607,10 @@
     $('guardar').addEventListener('click', function () {
         $('guardar').disabled = true;
         $('estado').textContent = 'Guardando…';
-        pedir('/catalogo', { method: 'PUT', body: JSON.stringify({ codigo: codigo, productos: productos }) })
+        pedir('/catalogo', { method: 'PUT', body: JSON.stringify({ codigo: codigo, productos: productos, aspecto: aspecto }) })
             .then(function (cat) {
                 productos = cat.productos;
+                aspecto = cat.aspecto || null;
                 marcar(false);
                 pintarLista();
                 $('estado').textContent = 'Guardado. En un minuto se ve en tu catálogo.';

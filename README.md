@@ -25,4 +25,5 @@ Pensamiento Computacional. Se publican con GitHub Pages en
 ## No se editan acá
 
 `estilos.css` y `catalogo.js` salen del repo del curso (`public/proyecto-catalogo/`), porque los
-usan también los catálogos de los alumnos. Si cambian, se copian de allá.
+usan también los catálogos de los alumnos. `colores.js` (que los colores se lean, las paletas) sale
+de `src/scripts/colores.js`, porque lo usa también el panel del curso. Si cambian, se copian de allá.

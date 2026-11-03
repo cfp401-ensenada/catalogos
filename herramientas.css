@@ -90,7 +90,13 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.45); }
 .ficha { display: grid; gap: 8px; padding: 18px; }
 .ficha label, .ficha .rotulo { margin-top: 6px; }
 .foto-campo { display: flex; gap: 14px; align-items: center; }
-.foto-vista { width: 88px; height: 88px; font-size: 2.6rem; }
+.foto-vista { width: 160px; height: 160px; font-size: 3.4rem; touch-action: none; user-select: none; }
+.foto-vista img { -webkit-user-drag: none; user-select: none; }
+.foto-vista.movible { cursor: grab; }
+.foto-vista.movible:active { cursor: grabbing; }
+.encuadre { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+.encuadre .nota { flex-basis: 100%; }
+.encuadre input[type="range"] { flex: 1; min-width: 140px; padding: 0; accent-color: var(--acento); }
 .foto-botones { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .detalles-campo { display: grid; gap: 6px; }
 .dato { display: grid; grid-template-columns: 1fr 1.6fr auto; gap: 6px; }
@@ -104,3 +110,19 @@ th { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; colo
 textarea.mensaje { min-height: 9rem; font-size: 0.95rem; }
 .peligro-texto { color: var(--peligro); }
 .baja { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--peligro); border-radius: 10px; }
+/* "Cómo se ve": los colores y la muestra del catálogo */
+.colores { display: flex; flex-wrap: wrap; gap: 12px 20px; }
+.colores label { font-weight: 600; gap: 8px; align-items: center; }
+.colores input[type="color"] { width: 3.2rem; height: 2.4rem; padding: 0; border: 0; background: none; }
+.muestra {
+    position: relative; overflow: hidden; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
+    padding: 16px 18px; border-radius: 12px; border: 1px solid var(--linea); background-size: cover; background-position: center;
+}
+.muestra > :not(.muestra-velo) { position: relative; }
+.muestra-velo { position: absolute; inset: 0; }
+.muestra-nombre { flex-basis: 100%; font: 400 2rem "Great Vibes", cursive, serif; }
+.muestra-producto { font-weight: 600; }
+.muestra-precio { font-weight: 700; padding: 4px 14px; border-radius: 999px; }
+.muestra-boton { font-weight: 600; font-size: 0.9rem; padding: 4px 14px; border: 2px solid; border-radius: 999px; }
+.aviso-colores { padding: 10px 12px; border-radius: 10px; border: 1px solid #c2770a; display: grid; gap: 4px; }
+.aviso-colores p { margin: 0; }

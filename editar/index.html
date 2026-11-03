@@ -6,6 +6,7 @@
     <meta name="robots" content="noindex">
     <title>Editar mi catálogo</title>
     <link rel="stylesheet" href="../herramientas.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap">
 </head>
 <body>
     <main class="hoja">
@@ -31,6 +32,7 @@
             </header>
             <div class="acciones">
                 <button type="button" id="nuevo" class="principal">＋ Producto nuevo</button>
+                <button type="button" id="abrir-aspecto" class="secundario">🎨 Cómo se ve</button>
                 <label class="secundario" for="importar">Importar productos.csv</label>
                 <input type="file" id="importar" accept=".csv,text/csv" hidden>
                 <button type="button" id="salir" class="enlace">Salir</button>
@@ -64,6 +66,12 @@
                     <span class="nota" id="f-foto-estado"></span>
                 </div>
             </div>
+            <div class="encuadre" id="f-encuadre" hidden>
+                <p class="nota">Arrastrá la foto en el círculo para elegir qué parte se ve.</p>
+                <label for="f-zoom">Acercar</label>
+                <input type="range" id="f-zoom" min="1" max="3" step="0.05" value="1">
+                <button type="button" id="f-centrar" class="enlace">Centrar</button>
+            </div>
             <label for="f-emoji">Emoji <small>se ve si no hay foto</small></label>
             <input id="f-emoji" maxlength="8" class="corto">
             <span class="rotulo">Otros datos <small>material, medidas, talles…</small></span>
@@ -79,7 +87,53 @@
         </form>
     </dialog>
 
+    <dialog id="aspecto">
+        <form id="form-aspecto" method="dialog" class="ficha">
+            <h2>Cómo se ve</h2>
+            <p class="nota">Si no cambiás nada acá, tu catálogo queda como lo armaste.</p>
+            <label for="a-nombre">Nombre</label>
+            <input id="a-nombre" maxlength="60">
+            <label for="a-whatsapp">WhatsApp <small>10 números: característica sin el 0 y número sin el 15</small></label>
+            <input id="a-whatsapp" inputmode="numeric" maxlength="10" placeholder="2215550000">
+            <div class="colores">
+                <label>Fondo <input type="color" id="a-fondo"></label>
+                <label>Letras <input type="color" id="a-texto"></label>
+                <label>Botones y precio <input type="color" id="a-acento"></label>
+            </div>
+            <div class="acciones">
+                <button type="button" id="a-sugerir" class="secundario">🎨 Sugerir colores</button>
+                <span class="nota" id="a-paleta"></span>
+            </div>
+            <span class="rotulo">Foto de fondo <small>opcional; un GIF queda animado</small></span>
+            <div class="acciones">
+                <label class="secundario" for="a-foto">Elegir foto</label>
+                <input type="file" id="a-foto" accept="image/*" hidden>
+                <button type="button" id="a-sacar-foto" class="enlace" hidden>Sacar la foto</button>
+                <button type="button" id="a-colores-foto" class="enlace" hidden>Colores de la foto</button>
+                <span class="nota" id="a-foto-estado"></span>
+            </div>
+            <div class="muestra" id="a-muestra" aria-hidden="true">
+                <div class="muestra-velo" id="a-velo-vista"></div>
+                <span class="muestra-nombre" id="a-m-nombre"></span>
+                <span class="muestra-producto">Taza de cerámica</span>
+                <span class="muestra-precio" id="a-m-precio">$4.500</span>
+                <span class="muestra-boton" id="a-m-boton">Consultar por WhatsApp</span>
+            </div>
+            <div class="aviso-colores" id="a-aviso" hidden>
+                <p id="a-aviso-texto"></p>
+                <button type="button" id="a-mis-colores" class="enlace">Volver a mis colores</button>
+            </div>
+            <p class="error" id="error-aspecto" role="alert"></p>
+            <div class="ficha-pie">
+                <button type="button" id="a-original" class="enlace">Volver al diseño original</button>
+                <span class="separador"></span>
+                <button type="button" id="a-cancelar" class="secundario">Cancelar</button>
+                <button type="submit" id="a-listo" class="principal">Listo</button>
+            </div>
+        </form>
+    </dialog>
+
     <script src="../catalogo.js"></script>
-    <script src="../editor.js"></script>
+    <script type="module" src="../editor.js"></script>
 </body>
 </html>

@@ -45,6 +45,18 @@
         return 'fotos/' + foto;
     }
 
+    /* El encuadre que se eligió en el editor: qué parte de la foto se ve, y cuánto se acerca.
+     * Es el mismo en el editor y en el catálogo, así se ve igual en los dos. */
+    function aplicarEncuadre(img, encuadre) {
+        var e = encuadre || { x: 50, y: 50, zoom: 1 };
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.objectFit = 'cover';
+        img.style.objectPosition = e.x + '% ' + e.y + '%';
+        img.style.transformOrigin = e.x + '% ' + e.y + '%';
+        img.style.transform = 'scale(' + e.zoom + ')';
+    }
+
     function elemento(etiqueta, clase, texto) {
         var e = document.createElement(etiqueta);
         if (clase) e.className = clase;
@@ -56,11 +68,15 @@
         var art = elemento('article', 'producto');
         var src = fotoSrc(producto.foto);
         if (src) {
-            var img = elemento('img', 'producto__foto');
+            // La foto va adentro del círculo, para poder moverla y acercarla sin que se salga
+            var circulo = elemento('div', 'producto__foto');
+            var img = elemento('img', '');
             img.src = src;
             img.alt = producto.nombre;
             img.loading = 'lazy';
-            art.appendChild(img);
+            aplicarEncuadre(img, producto.encuadre);
+            circulo.appendChild(img);
+            art.appendChild(circulo);
         } else {
             art.appendChild(elemento('div', 'producto__foto', producto.emoji || '🛍️'));
         }
@@ -87,11 +103,38 @@
         return art;
     }
 
+    /* Cómo se ve, si se eligió en el editor: los colores y la foto de fondo pisan las variables de
+     * estilos.css, y el nombre y el WhatsApp, los que puso Python. Sin aspecto, no cambia nada. */
+    function aplicarAspecto(a) {
+        if (!a) return;
+        var raiz = document.documentElement.style;
+        var variables = {
+            '--fondo': a.fondo, '--texto': a.texto, '--acento': a.acento, '--marca': a.marca,
+            '--sobre-acento': a.sobreAcento, '--linea': a.acento,
+            '--imagen-de-fondo': a.imagen ? 'url("' + fotoSrc(a.imagen) + '")' : 'none',
+            '--velo': a.imagen ? String(a.velo) : '0',
+        };
+        Object.keys(variables).forEach(function (k) { if (variables[k]) raiz.setProperty(k, variables[k]); });
+        if (a.nombre) {
+            var h1 = document.querySelector('.encabezado h1');
+            if (h1) h1.textContent = a.nombre;
+            document.title = a.nombre;
+        }
+        if (a.numero) {
+            document.querySelectorAll('.contacto a.consultar').forEach(function (enlace) {
+                if (enlace.href.indexOf('wa.me/') >= 0) enlace.href = 'https://wa.me/' + a.numero;
+            });
+        }
+    }
+
     function pintar(main, productos, numero) {
         main.replaceChildren.apply(main, productos.map(function (p) { return tarjeta(p, numero); }));
     }
 
-    window.Catalogo = { WORKER: WORKER, precio: precio, fotoSrc: fotoSrc, tarjeta: tarjeta, pintar: pintar };
+    window.Catalogo = {
+        WORKER: WORKER, precio: precio, fotoSrc: fotoSrc, aplicarEncuadre: aplicarEncuadre,
+        aplicarAspecto: aplicarAspecto, tarjeta: tarjeta, pintar: pintar,
+    };
 
     var script = document.currentScript;
     var slug = script && script.dataset.catalogo;
@@ -108,6 +151,10 @@
     fetch(WORKER + '/catalogo/' + encodeURIComponent(slug))
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (datos) {
+            if (datos && datos.aspecto) {
+                aplicarAspecto(datos.aspecto);
+                if (datos.aspecto.numero) numero = datos.aspecto.numero;
+            }
             if (datos && datos.productos && datos.productos.length) pintar(main, datos.productos, numero);
             else sinProductos('Muy pronto, los productos.');
         })
