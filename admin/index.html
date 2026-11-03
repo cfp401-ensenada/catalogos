@@ -141,10 +141,68 @@
                         });
                     });
                     td.appendChild(b);
+                    var baja = document.createElement('button');
+                    baja.type = 'button';
+                    baja.className = 'enlace peligro-texto';
+                    baja.textContent = 'Dar de baja';
+                    baja.addEventListener('click', function () { pedirBaja(cat, tr); });
+                    td.appendChild(baja);
                     tr.appendChild(td);
                     return tr;
                 }));
             });
+        }
+
+        /* La baja pide la clave otra vez, escrita en el momento: no alcanza con haber entrado. */
+        function pedirBaja(cat, fila) {
+            var vieja = document.getElementById('confirmar-baja');
+            if (vieja) vieja.remove();
+            var tr = document.createElement('tr');
+            tr.id = 'confirmar-baja';
+            var td = document.createElement('td');
+            td.colSpan = 5;
+            var form = document.createElement('form');
+            form.className = 'baja';
+            var texto = document.createElement('p');
+            texto.textContent = 'Dar de baja ' + cat.nombre + ' borra sus productos, sus fotos y su código. No se puede deshacer. Para confirmar, escribí la clave de administración otra vez.';
+            var clave2 = document.createElement('input');
+            clave2.type = 'password';
+            clave2.autocomplete = 'off';
+            clave2.required = true;
+            clave2.setAttribute('aria-label', 'Clave de administración');
+            var confirmar = document.createElement('button');
+            confirmar.type = 'submit';
+            confirmar.className = 'peligro';
+            confirmar.textContent = 'Dar de baja ' + cat.nombre;
+            var cancelar = document.createElement('button');
+            cancelar.type = 'button';
+            cancelar.className = 'enlace';
+            cancelar.textContent = 'Cancelar';
+            cancelar.addEventListener('click', function () { tr.remove(); });
+            var error = document.createElement('p');
+            error.className = 'error';
+            form.append(texto, clave2, confirmar, cancelar, error);
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+                fetch(WORKER + '/admin/baja', {
+                    method: 'POST',
+                    headers: { 'X-Admin': clave2.value },
+                    body: JSON.stringify({ slug: cat.slug, confirmar: cat.slug }),
+                }).then(function (r) {
+                    return r.json().catch(function () { return {}; }).then(function (datos) {
+                        if (!r.ok) throw new Error(datos.error || 'No se pudo dar de baja.');
+                        $('resultado').hidden = false;
+                        $('r-titulo').textContent = cat.nombre + ' quedó dado de baja';
+                        $('r-codigo').textContent = '';
+                        $('r-mensaje').value = 'Falta borrar su carpeta del repo: https://github.com/cfp401-ensenada/catalogos/tree/main/' + cat.slug;
+                        cargar();
+                    });
+                }).catch(function (err) { error.textContent = err.message; });
+            });
+            td.appendChild(form);
+            tr.appendChild(td);
+            fila.after(tr);
+            clave2.focus();
         }
 
         $('form-clave').addEventListener('submit', function (e) {

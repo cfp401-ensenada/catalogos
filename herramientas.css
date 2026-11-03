@@ -102,3 +102,5 @@ th { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; colo
 .tabla { overflow-x: auto; }
 .codigo-grande { font: 700 2rem ui-monospace, Consolas, monospace; letter-spacing: 0.1em; }
 textarea.mensaje { min-height: 9rem; font-size: 0.95rem; }
+.peligro-texto { color: var(--peligro); }
+.baja { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--peligro); border-radius: 10px; }
