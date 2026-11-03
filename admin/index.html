@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
+    <title>Catálogos · Administración</title>
+    <link rel="stylesheet" href="../herramientas.css">
+</head>
+<body>
+    <main class="hoja">
+        <header class="bloque">
+            <span class="etiqueta">CFP 401 · Catálogos</span>
+            <h1>Administración</h1>
+            <p class="nota">Dar de alta un catálogo, ver los que hay y generar un código nuevo si alguien lo pierde.</p>
+        </header>
+
+        <form id="form-clave" class="tarjeta">
+            <label for="clave">Clave de administración</label>
+            <input id="clave" type="password" autocomplete="current-password" required>
+            <button type="submit" class="principal">Entrar</button>
+            <p class="error" id="error-clave" role="alert"></p>
+        </form>
+
+        <div id="panel" class="bloque" hidden>
+            <form id="form-alta" class="tarjeta">
+                <h2>Dar de alta</h2>
+                <label for="a-nombre">Nombre del emprendimiento</label>
+                <input id="a-nombre" maxlength="80" required>
+                <label for="a-slug">Dirección <small>minúsculas, números y guiones. No se cambia después</small></label>
+                <input id="a-slug" maxlength="40" pattern="[a-z0-9][a-z0-9-]{1,38}[a-z0-9]" required>
+                <label for="a-enlace">Link del catálogo <small>solo si está en la cuenta de un alumno. Si no, va en la organización</small></label>
+                <input id="a-enlace" type="url" placeholder="https://usuario.github.io/catalogo/">
+                <button type="submit" class="principal">Dar de alta</button>
+                <p class="error" id="error-alta" role="alert"></p>
+            </form>
+
+            <section id="resultado" class="tarjeta" hidden>
+                <h2 id="r-titulo">Listo</h2>
+                <p>Código para editar:</p>
+                <p class="codigo-grande" id="r-codigo"></p>
+                <label for="r-mensaje">Mensaje para mandarle</label>
+                <textarea id="r-mensaje" class="mensaje" readonly></textarea>
+                <div class="acciones">
+                    <button type="button" id="r-copiar" class="principal">Copiar mensaje</button>
+                    <a id="r-armar" class="secundario" target="_blank" rel="noopener">Armar la carpeta del catálogo ↗</a>
+                </div>
+                <p class="nota">El código no se vuelve a mostrar. Si se pierde, se genera uno nuevo desde la lista.</p>
+            </section>
+
+            <section class="bloque">
+                <div class="cabeza">
+                    <h2>Catálogos</h2>
+                    <button type="button" id="recargar" class="enlace">Actualizar la lista</button>
+                </div>
+                <div class="tabla">
+                    <table>
+                        <thead><tr><th>Nombre</th><th>Dirección</th><th>Productos</th><th>Último cambio</th><th></th></tr></thead>
+                        <tbody id="filas"></tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <script src="../catalogo.js"></script>
+    <script>
+    (function () {
+        var WORKER = window.Catalogo.WORKER;
+        var EDITOR = new URL('../editar/', location.href).href;
+        var PANEL = 'https://maxinunez24.github.io/pensamiento-computacional-testing-2026/ejercicios/armar-tu-catalogo/';
+        var $ = function (id) { return document.getElementById(id); };
+        var clave = '';
+
+        function pedir(ruta, metodo, cuerpo) {
+            return fetch(WORKER + ruta, {
+                method: metodo,
+                headers: { 'X-Admin': clave },
+                body: cuerpo ? JSON.stringify(cuerpo) : undefined,
+            }).then(function (r) {
+                return r.json().catch(function () { return {}; }).then(function (datos) {
+                    if (!r.ok) throw new Error(datos.error || 'No se pudo conectar con el Worker.');
+                    return datos;
+                });
+            });
+        }
+
+        function slugDe(nombre) {
+            return nombre.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+        }
+
+        function enlaceDe(cat) {
+            return cat.enlace || 'https://cfp401-ensenada.github.io/catalogos/' + cat.slug + '/';
+        }
+
+        function mostrarCodigo(cat, codigo, titulo) {
+            $('resultado').hidden = false;
+            $('r-titulo').textContent = titulo;
+            $('r-codigo').textContent = codigo;
+            $('r-mensaje').value = '¡Hola! Tu catálogo de ' + cat.nombre + ' ya está en internet:\n' + enlaceDe(cat) +
+                '\n\nPara cambiar productos, precios y fotos, entrá acá:\n' + EDITOR +
+                '\n\nTu código es ' + codigo + '. Es como una contraseña: no lo compartas.';
+            var armar = new URL(PANEL);
+            armar.searchParams.set('catalogo', cat.slug);
+            armar.searchParams.set('nombre', cat.nombre);
+            $('r-armar').href = armar.href;
+            $('r-armar').hidden = Boolean(cat.enlace) && cat.enlace.indexOf('cfp401-ensenada.github.io') < 0;
+            $('resultado').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function fecha(iso) {
+            return iso ? new Date(iso).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }) : '';
+        }
+
+        function cargar() {
+            return pedir('/admin/catalogos', 'GET').then(function (lista) {
+                lista.sort(function (a, b) { return a.nombre.localeCompare(b.nombre, 'es'); });
+                $('filas').replaceChildren.apply($('filas'), lista.map(function (cat) {
+                    var tr = document.createElement('tr');
+                    [cat.nombre, cat.slug, String(cat.productos), fecha(cat.actualizado)].forEach(function (t) {
+                        var td = document.createElement('td');
+                        td.textContent = t;
+                        tr.appendChild(td);
+                    });
+                    var td = document.createElement('td');
+                    var b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'enlace';
+                    b.textContent = 'Código nuevo';
+                    b.addEventListener('click', function () {
+                        if (!b.dataset.seguro) {
+                            b.dataset.seguro = '1';
+                            b.textContent = '¿Seguro? El viejo deja de andar';
+                            return;
+                        }
+                        pedir('/admin/codigo', 'POST', { slug: cat.slug }).then(function (r) {
+                            mostrarCodigo(cat, r.codigo, 'Código nuevo para ' + cat.nombre);
+                            b.textContent = 'Código nuevo';
+                            delete b.dataset.seguro;
+                        });
+                    });
+                    td.appendChild(b);
+                    tr.appendChild(td);
+                    return tr;
+                }));
+            });
+        }
+
+        $('form-clave').addEventListener('submit', function (e) {
+            e.preventDefault();
+            clave = $('clave').value;
+            $('error-clave').textContent = '';
+            cargar().then(function () {
+                try { sessionStorage.setItem('catalogos:admin', clave); } catch (err) { /* nada */ }
+                $('form-clave').hidden = true;
+                $('panel').hidden = false;
+            }).catch(function (error) { $('error-clave').textContent = error.message; });
+        });
+
+        $('a-nombre').addEventListener('input', function () {
+            if (!$('a-slug').dataset.tocado) $('a-slug').value = slugDe($('a-nombre').value);
+        });
+        $('a-slug').addEventListener('input', function () { $('a-slug').dataset.tocado = '1'; });
+
+        $('form-alta').addEventListener('submit', function (e) {
+            e.preventDefault();
+            $('error-alta').textContent = '';
+            var cat = { nombre: $('a-nombre').value.trim(), slug: $('a-slug').value.trim(), enlace: $('a-enlace').value.trim() };
+            pedir('/admin/alta', 'POST', cat).then(function (r) {
+                mostrarCodigo({ nombre: r.nombre, slug: r.slug, enlace: cat.enlace }, r.codigo, cat.nombre + ' quedó dado de alta');
+                $('form-alta').reset();
+                delete $('a-slug').dataset.tocado;
+                cargar();
+            }).catch(function (error) { $('error-alta').textContent = error.message; });
+        });
+
+        $('r-copiar').addEventListener('click', function () {
+            navigator.clipboard.writeText($('r-mensaje').value).then(function () {
+                $('r-copiar').textContent = 'Copiado';
+            }).catch(function () { $('r-mensaje').select(); });
+        });
+        $('recargar').addEventListener('click', cargar);
+
+        try {
+            var guardada = sessionStorage.getItem('catalogos:admin');
+            if (guardada) { $('clave').value = guardada; $('form-clave').requestSubmit(); }
+        } catch (err) { /* nada */ }
+    })();
+    </script>
+</body>
+</html>

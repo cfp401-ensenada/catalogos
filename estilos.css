@@ -1,0 +1,180 @@
+@import url("https://fonts.googleapis.com/css2?family=Great+Vibes&family=Montserrat:wght@400;600;700&display=swap");
+
+/* Los colores y las letras de la marca: para cambiar el estilo,
+   alcanza con cambiar estos valores. */
+:root {
+    --fondo: #d3cac8;
+    --texto: #5b6844;
+    --acento: #5f6f45;
+    --linea: #93a77c;
+    --marca: #ffffff;
+    --fondo-foto: #ecd3dc;
+    --sobre-acento: #ffffff;
+    --letra: "Montserrat", system-ui, sans-serif;
+    --letra-marca: "Great Vibes", cursive;
+    /* Una foto de fondo (opcional): url("fondo.jpg"). El velo la aclara para que
+       se lea el texto: 0 es sin velo, 0.7 casi tapa la foto. */
+    --imagen-de-fondo: none;
+    --velo: 0;
+}
+
+* { box-sizing: border-box; }
+body {
+    margin: 0;
+    font-family: var(--letra);
+    background: var(--imagen-de-fondo) center / cover no-repeat fixed, var(--fondo);
+    color: var(--texto);
+}
+body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    background: var(--fondo);
+    opacity: var(--velo);
+    pointer-events: none;
+}
+
+/* La portada: el nombre de la marca, con una rama en cada esquina */
+.encabezado {
+    position: relative;
+    overflow: hidden;
+    padding: 4rem 1rem 3rem;
+    text-align: center;
+}
+.encabezado h1 {
+    display: inline-block;
+    margin: 0;
+    padding: 0 0.5rem 0.75rem;
+    border-bottom: 2px solid var(--marca);
+    font-family: var(--letra-marca);
+    font-size: clamp(3rem, 13vw, 5.5rem);
+    font-weight: 400;
+    line-height: 1.1;
+    color: var(--marca);
+}
+.encabezado::before,
+.encabezado::after,
+.contacto::before,
+.contacto::after,
+.catalogo::before,
+.catalogo::after {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    width: clamp(64px, 18vw, 170px);
+    aspect-ratio: 1;
+    background: url("adornos/rama-blanca.svg") center / contain no-repeat;
+    pointer-events: none;
+}
+.encabezado::before { top: 0; left: 0; transform: scaleY(-1); }
+.encabezado::after { top: 0; right: 0; transform: scale(-1, -1); }
+
+/* Los productos: uno abajo del otro */
+.catalogo {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 3.5rem;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem 1rem 3rem;
+}
+.catalogo::before,
+.catalogo::after { background-image: url("adornos/rama-verde.svg"); }
+.catalogo::before { top: 0; right: 0; transform: scale(-1, -1); }
+.catalogo::after { bottom: 0; left: 0; }
+
+/* Una tarjeta: la foto en un círculo, y abajo el texto */
+.producto {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6rem;
+    max-width: 320px;
+    text-align: center;
+}
+.catalogo .producto { max-width: none; }
+body > .producto { margin: 1.5rem auto; padding: 0 1rem; }
+.producto__foto {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: min(260px, 75vw);
+    aspect-ratio: 1;
+    border-radius: 50%;
+    overflow: hidden;
+    background: var(--fondo-foto);
+    font-size: 5rem;
+}
+img.producto__foto { object-fit: cover; }
+.producto h2 {
+    width: 100%;
+    margin: 0.75rem 0 0;
+    padding-top: 1rem;
+    border-top: 3px solid var(--linea);
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+.descripcion { margin: 0; line-height: 1.45; }
+/* Los datos de más de cada producto (material, medidas...): ver "Más datos de cada producto" */
+.detalles { margin: 0; padding: 0; list-style: none; line-height: 1.5; font-size: 0.95rem; }
+.detalles strong { font-weight: 600; }
+.precio {
+    margin: 0.4rem 0 0;
+    padding: 0.35rem 1.2rem;
+    border-radius: 999px;
+    background: var(--acento);
+    color: var(--sobre-acento);
+    font-size: 1.25rem;
+    font-weight: 700;
+}
+.consultar {
+    display: inline-block;
+    margin-top: 0.4rem;
+    padding: 0.55rem 1.2rem;
+    border: 2px solid var(--acento);
+    border-radius: 999px;
+    color: var(--acento);
+    font-weight: 600;
+    text-decoration: none;
+}
+.consultar:hover { background: var(--acento); color: var(--sobre-acento); }
+
+/* En pantallas anchas: foto a un lado y texto al otro, y una sí y una no
+   se dan vuelta (el zigzag del catálogo de Canva) */
+@media (min-width: 640px) {
+    .catalogo .producto {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: 1fr auto auto auto auto auto 1fr;
+        column-gap: 2.5rem;
+        justify-items: center;
+    }
+    .catalogo .producto__foto { grid-column: 2; grid-row: 1 / -1; width: min(300px, 100%); }
+    .catalogo .producto h2 { grid-column: 1; grid-row: 2; }
+    .catalogo .descripcion { grid-column: 1; grid-row: 3; }
+    .catalogo .detalles { grid-column: 1; grid-row: 4; }
+    .catalogo .precio { grid-column: 1; grid-row: 5; }
+    .catalogo .consultar { grid-column: 1; grid-row: 6; }
+    .catalogo .producto:nth-child(even) .producto__foto { grid-column: 1; }
+    .catalogo .producto:nth-child(even) > :not(.producto__foto) { grid-column: 2; }
+}
+
+/* El cierre: cómo contactarte */
+.contacto {
+    position: relative;
+    overflow: hidden;
+    padding: 3rem 1rem 6rem;
+    text-align: center;
+}
+.contacto h2 {
+    margin: 0 0 1.25rem;
+    font-family: var(--letra-marca);
+    font-size: clamp(2.6rem, 10vw, 4rem);
+    font-weight: 400;
+    color: var(--marca);
+}
+.contacto p { margin: 1.25rem 0 0; text-decoration: underline; }
+.contacto::before { bottom: 0; left: 0; }
+.contacto::after { bottom: 0; right: 0; transform: scaleX(-1); }

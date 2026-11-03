@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <!-- Una rama de hojas: nace abajo a la izquierda y crece hacia arriba a la derecha -->
+  <path d="M12 196C60 150 112 96 188 14"/>
+  <g transform="translate(48 160) rotate(-100)"><path d="M0 0C14 -15 32 -14 46 0C32 14 14 15 0 0Z"/><path d="M4 0H37"/></g>
+  <g transform="translate(48 160) rotate(10)"><path d="M0 0C14 -15 32 -14 46 0C32 14 14 15 0 0Z"/><path d="M4 0H37"/></g>
+  <g transform="translate(82 124) rotate(-100)"><path d="M0 0C13 -13 29 -13 42 0C29 13 13 13 0 0Z"/><path d="M4 0H34"/></g>
+  <g transform="translate(82 124) rotate(10)"><path d="M0 0C13 -13 29 -13 42 0C29 13 13 13 0 0Z"/><path d="M4 0H34"/></g>
+  <g transform="translate(116 88) rotate(-100)"><path d="M0 0C11 -12 27 -11 38 0C27 11 11 12 0 0Z"/><path d="M4 0H30"/></g>
+  <g transform="translate(116 88) rotate(10)"><path d="M0 0C11 -12 27 -11 38 0C27 11 11 12 0 0Z"/><path d="M4 0H30"/></g>
+  <g transform="translate(150 52) rotate(-100)"><path d="M0 0C10 -10 22 -10 32 0C22 10 10 10 0 0Z"/><path d="M4 0H26"/></g>
+  <g transform="translate(150 52) rotate(10)"><path d="M0 0C10 -10 22 -10 32 0C22 10 10 10 0 0Z"/><path d="M4 0H26"/></g>
+  <g transform="translate(188 14) rotate(-45)"><path d="M0 0C8 -8 18 -8 26 0C18 8 8 8 0 0Z"/><path d="M4 0H21"/></g>
+</svg>

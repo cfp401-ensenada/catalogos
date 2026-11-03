@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
+    <title>Editar mi catálogo</title>
+    <link rel="stylesheet" href="../herramientas.css">
+</head>
+<body>
+    <main class="hoja">
+        <section id="entrar" class="bloque">
+            <h1>Tu catálogo</h1>
+            <p>Entrá con el código que te dimos: son ocho letras y números, como <code>K7F2-AB9C</code>. Con él cambiás tus productos, precios y fotos, y se ven en tu catálogo en un minuto.</p>
+            <form id="form-entrar" class="tarjeta">
+                <label for="codigo">Código</label>
+                <input id="codigo" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="11" placeholder="XXXX-XXXX" required>
+                <label class="casilla"><input type="checkbox" id="recordar" checked> Recordarlo en este dispositivo</label>
+                <button type="submit" class="principal">Entrar</button>
+                <p class="error" id="error-entrar" role="alert"></p>
+            </form>
+        </section>
+
+        <section id="editor" class="bloque" hidden>
+            <header class="cabeza">
+                <div>
+                    <span class="etiqueta">Estás editando</span>
+                    <h1 id="nombre-cat"></h1>
+                </div>
+                <a id="ver" target="_blank" rel="noopener">Ver mi catálogo ↗</a>
+            </header>
+            <div class="acciones">
+                <button type="button" id="nuevo" class="principal">＋ Producto nuevo</button>
+                <label class="secundario" for="importar">Importar productos.csv</label>
+                <input type="file" id="importar" accept=".csv,text/csv" hidden>
+                <button type="button" id="salir" class="enlace">Salir</button>
+            </div>
+            <p class="nota" id="vacio" hidden>Todavía no hay productos. Tocá <strong>Producto nuevo</strong>, o si ya tenés tu <code>productos.csv</code> de la clase, importalo.</p>
+            <ol id="lista" class="lista"></ol>
+        </section>
+    </main>
+
+    <div class="barra" id="barra" hidden>
+        <span id="estado" role="status"></span>
+        <button type="button" id="guardar" class="principal">Guardar cambios</button>
+    </div>
+
+    <dialog id="ficha">
+        <form id="form-ficha" method="dialog" class="ficha">
+            <h2 id="ficha-titulo">Producto</h2>
+            <label for="f-nombre">Nombre</label>
+            <input id="f-nombre" maxlength="80" required>
+            <label for="f-precio">Precio <small>solo el número, sin $ ni puntos. Vacío: no se muestra</small></label>
+            <input id="f-precio" inputmode="numeric" maxlength="9" pattern="[0-9]*">
+            <label for="f-descripcion">Descripción <small>una o dos oraciones</small></label>
+            <textarea id="f-descripcion" maxlength="240" rows="2"></textarea>
+            <span class="rotulo">Foto</span>
+            <div class="foto-campo">
+                <div class="foto-vista" id="f-vista"></div>
+                <div class="foto-botones">
+                    <label class="secundario" for="f-foto">Elegir foto</label>
+                    <input type="file" id="f-foto" accept="image/*" hidden>
+                    <button type="button" id="f-sacar-foto" class="enlace">Sacar la foto</button>
+                    <span class="nota" id="f-foto-estado"></span>
+                </div>
+            </div>
+            <label for="f-emoji">Emoji <small>se ve si no hay foto</small></label>
+            <input id="f-emoji" maxlength="8" class="corto">
+            <span class="rotulo">Otros datos <small>material, medidas, talles…</small></span>
+            <div id="f-detalles" class="detalles-campo"></div>
+            <button type="button" id="f-mas-dato" class="enlace">＋ Agregar un dato</button>
+            <p class="error" id="error-ficha" role="alert"></p>
+            <div class="ficha-pie">
+                <button type="button" id="f-borrar" class="peligro">Sacar este producto</button>
+                <span class="separador"></span>
+                <button type="button" id="f-cancelar" class="secundario">Cancelar</button>
+                <button type="submit" id="f-listo" class="principal">Listo</button>
+            </div>
+        </form>
+    </dialog>
+
+    <script src="../catalogo.js"></script>
+    <script src="../editor.js"></script>
+</body>
+</html>
