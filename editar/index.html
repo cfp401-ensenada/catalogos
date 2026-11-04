@@ -113,12 +113,39 @@
                 <button type="button" id="a-colores-foto" class="enlace" hidden>Colores de la foto</button>
                 <span class="nota" id="a-foto-estado"></span>
             </div>
-            <div class="muestra" id="a-muestra" aria-hidden="true">
-                <div class="muestra-velo" id="a-velo-vista"></div>
-                <span class="muestra-nombre" id="a-m-nombre"></span>
-                <span class="muestra-producto">Taza de cerámica</span>
-                <span class="muestra-precio" id="a-m-precio">$4.500</span>
-                <span class="muestra-boton" id="a-m-boton">Consultar por WhatsApp</span>
+            <div class="pantallas" id="a-pantallas">
+                <figure class="pantalla pantalla--celular">
+                    <div class="muestra" aria-hidden="true">
+                        <div class="muestra-foto"></div>
+                        <div class="muestra-velo"></div>
+                        <span class="muestra-nombre"></span>
+                        <span class="muestra-producto">Taza de cerámica</span>
+                        <span class="muestra-precio">$4.500</span>
+                        <span class="muestra-boton">Consultar por WhatsApp</span>
+                    </div>
+                    <figcaption>En el celular</figcaption>
+                </figure>
+                <figure class="pantalla pantalla--compu">
+                    <div class="muestra" aria-hidden="true">
+                        <div class="muestra-foto"></div>
+                        <div class="muestra-velo"></div>
+                        <span class="muestra-nombre"></span>
+                        <span class="muestra-producto">Taza de cerámica</span>
+                        <span class="muestra-precio">$4.500</span>
+                        <span class="muestra-boton">Consultar por WhatsApp</span>
+                    </div>
+                    <figcaption>En la compu</figcaption>
+                </figure>
+            </div>
+            <div class="encuadre" id="a-encuadre" hidden>
+                <p class="nota">Arrastrá la foto en cualquiera de las dos pantallas para elegir qué parte se ve.</p>
+                <label for="a-zoom">Acercar</label>
+                <input type="range" id="a-zoom" min="1" max="3" step="0.05" value="1">
+                <button type="button" id="a-centrar" class="enlace">Centrar</button>
+            </div>
+            <div class="encuadre" id="a-aclarar" hidden>
+                <label for="a-velo">Aclarar la foto <small>para que se lean las letras</small></label>
+                <input type="range" id="a-velo" min="0" max="0.9" step="0.05" value="0.55">
             </div>
             <div class="aviso-colores" id="a-aviso" hidden>
                 <p id="a-aviso-texto"></p>

@@ -16,14 +16,29 @@
        se lea el texto: 0 es sin velo, 0.7 casi tapa la foto. */
     --imagen-de-fondo: none;
     --velo: 0;
+    /* Qué parte de la foto se ve (50% 50% es el centro) y cuánto se acerca (1 es entera). */
+    --fondo-x: 50%;
+    --fondo-y: 50%;
+    --fondo-zoom: 1;
 }
 
 * { box-sizing: border-box; }
 body {
     margin: 0;
     font-family: var(--letra);
-    background: var(--imagen-de-fondo) center / cover no-repeat fixed, var(--fondo);
+    background: var(--fondo);
     color: var(--texto);
+}
+/* La foto de fondo va en su propia capa, quieta detrás de todo, para poder moverla y acercarla */
+body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -3;
+    background: var(--imagen-de-fondo) var(--fondo-x) var(--fondo-y) / cover no-repeat;
+    transform: scale(var(--fondo-zoom));
+    transform-origin: var(--fondo-x) var(--fondo-y);
+    pointer-events: none;
 }
 body::before {
     content: "";

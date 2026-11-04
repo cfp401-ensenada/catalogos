@@ -103,16 +103,19 @@
         return art;
     }
 
-    /* Cómo se ve, si se eligió en el editor: los colores y la foto de fondo pisan las variables de
+    /* Cómo se ve, si se eligió en el editor: los colores y la foto de fondo (con su encuadre) pisan las variables de
      * estilos.css, y el nombre y el WhatsApp, los que puso Python. Sin aspecto, no cambia nada. */
     function aplicarAspecto(a) {
         if (!a) return;
         var raiz = document.documentElement.style;
+        var e = (a.imagen && a.encuadre) || { x: 50, y: 50, zoom: 1 };
         var variables = {
             '--fondo': a.fondo, '--texto': a.texto, '--acento': a.acento, '--marca': a.marca,
             '--sobre-acento': a.sobreAcento, '--linea': a.acento,
             '--imagen-de-fondo': a.imagen ? 'url("' + fotoSrc(a.imagen) + '")' : 'none',
             '--velo': a.imagen ? String(a.velo) : '0',
+            // El encuadre de la foto de fondo, el mismo que el de las fotos de los productos
+            '--fondo-x': e.x + '%', '--fondo-y': e.y + '%', '--fondo-zoom': String(e.zoom),
         };
         Object.keys(variables).forEach(function (k) { if (variables[k]) raiz.setProperty(k, variables[k]); });
         if (a.nombre) {

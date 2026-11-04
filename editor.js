@@ -236,45 +236,57 @@ import { DE_LA_CLASE, PALETAS, coloresLegibles, paletaDeFoto } from './colores.j
     $('f-precio').addEventListener('input', function (e) { e.target.value = e.target.value.replace(/\D/g, ''); });
     $('f-sacar-foto').addEventListener('click', function () { fotoFicha = ''; encuadreFicha = CENTRO; pintarFoto(); });
 
-    /* ---------- El encuadre: arrastrar para mover, la barra para acercar ---------- */
-    function moverEncuadre(cambio) {
-        encuadreFicha = {
+    /* ---------- El encuadre: arrastrar para mover, la barra para acercar ----------
+     * Lo usan la foto de cada producto y la foto de fondo: "leer" da el encuadre de ahora y
+     * "poner" recibe el nuevo (ya dentro de los límites) y lo dibuja. */
+    function limitarEncuadre(cambio) {
+        return {
             x: Math.min(100, Math.max(0, cambio.x)),
             y: Math.min(100, Math.max(0, cambio.y)),
             zoom: Math.min(3, Math.max(1, cambio.zoom)),
         };
-        var img = $('f-vista').querySelector('img');
-        if (img) window.Catalogo.aplicarEncuadre(img, encuadreFicha);
     }
 
-    var arrastre = null;
-    $('f-vista').addEventListener('pointerdown', function (e) {
-        if (!$('f-vista').querySelector('img')) return;
-        e.preventDefault(); // que arrastrar no seleccione texto
-        arrastre = { x: e.clientX, y: e.clientY, desde: encuadreFicha };
-        $('f-vista').setPointerCapture(e.pointerId);
-    });
-    $('f-vista').addEventListener('pointermove', function (e) {
-        if (!arrastre) return;
-        // Arrastrar a la derecha muestra lo que estaba a la izquierda: por eso se resta
-        var lado = $('f-vista').clientWidth;
-        var escala = 100 / lado / arrastre.desde.zoom;
-        moverEncuadre({
-            x: arrastre.desde.x - (e.clientX - arrastre.x) * escala,
-            y: arrastre.desde.y - (e.clientY - arrastre.y) * escala,
-            zoom: arrastre.desde.zoom,
+    function encuadrable(vistas, barra, centrar, leer, poner) {
+        var arrastre = null;
+        vistas.forEach(function (vista) {
+            vista.addEventListener('pointerdown', function (e) {
+                if (!vista.classList.contains('movible')) return;
+                e.preventDefault(); // que arrastrar no seleccione texto
+                arrastre = { x: e.clientX, y: e.clientY, desde: leer(), vista: vista };
+                vista.setPointerCapture(e.pointerId);
+            });
+            vista.addEventListener('pointermove', function (e) {
+                if (!arrastre || arrastre.vista !== vista) return;
+                // Arrastrar a la derecha muestra lo que estaba a la izquierda: por eso se resta
+                var d = arrastre.desde;
+                poner(limitarEncuadre({
+                    x: d.x - (e.clientX - arrastre.x) * 100 / vista.clientWidth / d.zoom,
+                    y: d.y - (e.clientY - arrastre.y) * 100 / vista.clientHeight / d.zoom,
+                    zoom: d.zoom,
+                }));
+            });
+            ['pointerup', 'pointercancel'].forEach(function (tipo) {
+                vista.addEventListener(tipo, function () { arrastre = null; });
+            });
         });
-    });
-    ['pointerup', 'pointercancel'].forEach(function (tipo) {
-        $('f-vista').addEventListener(tipo, function () { arrastre = null; });
-    });
-    $('f-zoom').addEventListener('input', function (e) {
-        moverEncuadre({ x: encuadreFicha.x, y: encuadreFicha.y, zoom: Number(e.target.value) });
-    });
-    $('f-centrar').addEventListener('click', function () {
-        moverEncuadre(CENTRO);
-        $('f-zoom').value = 1;
-    });
+        barra.addEventListener('input', function () {
+            var e = leer();
+            poner(limitarEncuadre({ x: e.x, y: e.y, zoom: Number(barra.value) }));
+        });
+        centrar.addEventListener('click', function () {
+            poner(CENTRO);
+            barra.value = 1;
+        });
+    }
+
+    encuadrable([$('f-vista')], $('f-zoom'), $('f-centrar'),
+        function () { return encuadreFicha; },
+        function (nuevo) {
+            encuadreFicha = nuevo;
+            var img = $('f-vista').querySelector('img');
+            if (img) window.Catalogo.aplicarEncuadre(img, encuadreFicha);
+        });
 
     $('f-borrar').addEventListener('click', function (e) {
         var b = e.target;
@@ -421,13 +433,14 @@ import { DE_LA_CLASE, PALETAS, coloresLegibles, paletaDeFoto } from './colores.j
         });
     });
 
-    /* ---------- Cómo se ve: nombre, WhatsApp, colores y foto de fondo ----------
+    /* ---------- Cómo se ve: nombre, WhatsApp, colores y foto de fondo (con su encuadre) ----------
      * Lo elegido queda en "aspecto" y se guarda con "Guardar cambios", como los productos. Los
      * colores que no se leen se ajustan solos, igual que en el panel del curso. */
     var MAX_GIF_FONDO = 2560 * 1024;
     var imagenFondo = '';
     var archivoFondo = null;
     var veloFondo = 0.55;
+    var encuadreFondo = CENTRO;
     var respetarColores = false;
     var coloresOriginales = null;
     var siguientePaleta = 0;
@@ -442,25 +455,58 @@ import { DE_LA_CLASE, PALETAS, coloresLegibles, paletaDeFoto } from './colores.j
         $('a-mis-colores').hidden = !conBoton;
     }
 
+    function muestras() {
+        return Array.prototype.slice.call($('a-pantallas').querySelectorAll('.muestra'));
+    }
+
+    /* La foto de fondo en cada pantalla, como la pone estilos.css: cubre todo, corrida al punto
+     * elegido y acercada desde ahí. */
+    function pintarFotoFondo() {
+        var e = encuadreFondo;
+        muestras().forEach(function (muestra) {
+            var foto = muestra.querySelector('.muestra-foto');
+            foto.style.backgroundImage = imagenFondo ? 'url("' + window.Catalogo.fotoSrc(imagenFondo) + '")' : '';
+            foto.style.backgroundPosition = e.x + '% ' + e.y + '%';
+            foto.style.transformOrigin = e.x + '% ' + e.y + '%';
+            foto.style.transform = 'scale(' + e.zoom + ')';
+            muestra.querySelector('.muestra-velo').style.opacity = imagenFondo ? veloFondo : 0;
+            muestra.classList.toggle('movible', Boolean(imagenFondo));
+        });
+    }
+
     function pintarMuestra() {
         var elegidos = coloresElegidos();
         elegidos.respetarColores = respetarColores;
         var c = coloresLegibles(elegidos);
-        var muestra = $('a-muestra');
-        muestra.style.backgroundColor = c.fondo;
-        muestra.style.backgroundImage = imagenFondo ? 'url("' + window.Catalogo.fotoSrc(imagenFondo) + '")' : '';
-        $('a-velo-vista').style.background = c.fondo;
-        $('a-velo-vista').style.opacity = imagenFondo ? veloFondo : 0;
-        $('a-m-nombre').textContent = $('a-nombre').value || catalogo.nombre;
-        $('a-m-nombre').style.color = c.marca;
-        muestra.querySelector('.muestra-producto').style.color = c.texto;
-        $('a-m-precio').style.background = c.acento;
-        $('a-m-precio').style.color = c.sobreAcento;
-        $('a-m-boton').style.color = c.acento;
+        muestras().forEach(function (muestra) {
+            muestra.style.backgroundColor = c.fondo;
+            muestra.querySelector('.muestra-velo').style.background = c.fondo;
+            var nombre = muestra.querySelector('.muestra-nombre');
+            nombre.textContent = $('a-nombre').value || catalogo.nombre;
+            nombre.style.color = c.marca;
+            muestra.querySelector('.muestra-producto').style.color = c.texto;
+            muestra.querySelector('.muestra-precio').style.background = c.acento;
+            muestra.querySelector('.muestra-precio').style.color = c.sobreAcento;
+            muestra.querySelector('.muestra-boton').style.color = c.acento;
+        });
+        pintarFotoFondo();
+        $('a-encuadre').hidden = !imagenFondo;
+        $('a-aclarar').hidden = !imagenFondo;
+        $('a-zoom').value = encuadreFondo.zoom;
+        $('a-velo').value = veloFondo;
         $('a-sacar-foto').hidden = !imagenFondo;
         $('a-colores-foto').hidden = !archivoFondo;
         return c;
     }
+
+    encuadrable(muestras(), $('a-zoom'), $('a-centrar'),
+        function () { return encuadreFondo; },
+        function (nuevo) { encuadreFondo = nuevo; pintarFotoFondo(); });
+
+    $('a-velo').addEventListener('input', function (e) {
+        veloFondo = Number(e.target.value);
+        pintarFotoFondo();
+    });
 
     /* Al soltar un color: si no se lee, se cambia en el selector mismo, y se puede volver atrás. */
     function ajustarColores() {
@@ -494,6 +540,7 @@ import { DE_LA_CLASE, PALETAS, coloresLegibles, paletaDeFoto } from './colores.j
         $('a-acento').value = a.acento || DE_LA_CLASE.acento;
         imagenFondo = a.imagen || '';
         veloFondo = a.imagen ? a.velo : 0.55;
+        encuadreFondo = a.imagen && a.encuadre ? limitarEncuadre(a.encuadre) : CENTRO;
         archivoFondo = null;
         respetarColores = false;
         coloresOriginales = null;
@@ -546,6 +593,7 @@ import { DE_LA_CLASE, PALETAS, coloresLegibles, paletaDeFoto } from './colores.j
             .then(function (r) {
                 imagenFondo = r.foto;
                 archivoFondo = archivo;
+                encuadreFondo = CENTRO;
                 $('a-foto-estado').textContent = '';
                 pintarMuestra();
             })
@@ -556,6 +604,7 @@ import { DE_LA_CLASE, PALETAS, coloresLegibles, paletaDeFoto } from './colores.j
     $('a-sacar-foto').addEventListener('click', function () {
         imagenFondo = '';
         archivoFondo = null;
+        encuadreFondo = CENTRO;
         pintarMuestra();
     });
 
@@ -592,6 +641,7 @@ import { DE_LA_CLASE, PALETAS, coloresLegibles, paletaDeFoto } from './colores.j
             sobreAcento: c.sobreAcento,
             imagen: imagenFondo,
             velo: imagenFondo ? veloFondo : 0,
+            encuadre: imagenFondo ? encuadreFondo : undefined,
         };
         marcar(true);
         $('aspecto').close();
