@@ -38,7 +38,11 @@
                 <input type="file" id="importar" accept=".csv,text/csv" hidden>
                 <button type="button" id="salir" class="enlace">Salir</button>
             </div>
-            <p class="nota" id="vacio" hidden>Todavía no hay productos. Tocá <strong>Producto nuevo</strong>, o si ya tenés tu <code>productos.csv</code> de la clase, importalo.</p>
+            <div class="aviso-colores" id="aviso-conexion" role="alert" hidden>
+                <p><strong>⚠️ Tu página todavía no está conectada al editor.</strong> Lo que cambies acá no se va a ver en ella: sigue mostrando lo de tu <code>productos.csv</code>.</p>
+                <p>Para conectarla, arriba de <code>catalogo.py</code> poné <code>CATALOGO = "<span id="aviso-slug"></span>"</code>, corré <code>python catalogo.py</code> y subí de nuevo <code>index.html</code> y <code>catalogo.js</code>. Es una sola vez.</p>
+            </div>
+            <p class="nota" id="vacio" hidden>Todavía no hay productos. Tocá <strong>Producto nuevo</strong>, o si ya tenés tu <code>productos.csv</code> de la clase, importalo. Mientras no guardes ninguno, tu página muestra los de tu <code>productos.csv</code>; con el primero que guardes, muestra los de acá.</p>
             <ol id="lista" class="lista"></ol>
         </section>
     </main>

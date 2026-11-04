@@ -96,6 +96,24 @@ import { DE_LA_CLASE, PALETAS, coloresLegibles, paletaDeFoto } from './colores.j
         else $('ver').hidden = true;
         marcar(false);
         pintarLista();
+        revisarConexion();
+    }
+
+    /* ¿La página publicada le pregunta al editor? Se mira su HTML: GitHub Pages deja leerlo desde
+     * otro sitio. Si dice data-catalogo con otra dirección, o vacía, lo que se guarda acá no se ve
+     * allá. Si la página no se encuentra (todavía no la subió, o el link es otro), no se avisa nada. */
+    function revisarConexion() {
+        $('aviso-conexion').hidden = true;
+        $('aviso-slug').textContent = catalogo.slug || '';
+        if (!catalogo.enlace || !catalogo.slug) return;
+        fetch(catalogo.enlace, { cache: 'no-store' })
+            .then(function (r) { return r.ok ? r.text() : ''; })
+            .then(function (html) {
+                var dicho = /data-catalogo\s*=\s*["']([^"']*)["']/.exec(html);
+                if (!html) return;
+                $('aviso-conexion').hidden = Boolean(dicho && dicho[1] === catalogo.slug);
+            })
+            .catch(function () { /* sin la página no se puede saber: no se avisa */ });
     }
 
     /* ---------- La lista ---------- */
