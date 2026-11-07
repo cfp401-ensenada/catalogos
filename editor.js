@@ -124,8 +124,8 @@ import { DE_LA_CLASE, PALETAS, coloresLegibles, paletaDeFoto } from './colores.j
             var img = document.createElement('img');
             img.src = window.Catalogo.fotoSrc(p.foto);
             img.alt = '';
-            window.Catalogo.aplicarEncuadre(img, p.encuadre);
             caja.appendChild(img);
+            window.Catalogo.aplicarEncuadre(img, p.encuadre);
         } else {
             caja.textContent = p.foto ? '📁' : (p.emoji || '🛍️');
             if (p.foto) caja.title = 'La foto ' + p.foto + ' está en la carpeta fotos/ de tu proyecto';
@@ -211,8 +211,8 @@ import { DE_LA_CLASE, PALETAS, coloresLegibles, paletaDeFoto } from './colores.j
             img.src = window.Catalogo.fotoSrc(fotoFicha);
             img.alt = '';
             img.draggable = false;
-            window.Catalogo.aplicarEncuadre(img, encuadreFicha);
             vista.appendChild(img);
+            window.Catalogo.aplicarEncuadre(img, encuadreFicha);
         } else {
             vista.textContent = fotoFicha ? '📁' : ($('f-emoji').value || '🛍️');
         }
@@ -261,11 +261,21 @@ import { DE_LA_CLASE, PALETAS, coloresLegibles, paletaDeFoto } from './colores.j
         return {
             x: Math.min(100, Math.max(0, cambio.x)),
             y: Math.min(100, Math.max(0, cambio.y)),
-            zoom: Math.min(3, Math.max(1, cambio.zoom)),
+            zoom: Math.min(3, Math.max(0.2, cambio.zoom)),
         };
     }
 
-    function encuadrable(vistas, barra, centrar, leer, poner) {
+    /* Cuánto se corre x (o y) por cada pixel que se arrastra: depende de cuánto le sobra o le falta a la foto
+     * para llenar el marco. Si sobra, arrastrar a la derecha muestra lo que estaba a la izquierda; si falta,
+     * la foto va con el dedo. Las dos cosas salen de la misma cuenta: el signo de (marco - foto). */
+    function correr(desde, pixeles, marco, foto) {
+        var resto = marco - foto;
+        if (Math.abs(resto) < 2) return desde; // la foto justo llena ese lado: no hay a dónde moverla
+        return desde + pixeles * 100 / resto;
+    }
+
+    /* medir(vista) da el tamaño de la foto en % de esa vista ({ ancho, alto }), o nada si todavía no cargó. */
+    function encuadrable(vistas, barra, centrar, leer, poner, medir) {
         var arrastre = null;
         vistas.forEach(function (vista) {
             vista.addEventListener('pointerdown', function (e) {
@@ -276,11 +286,12 @@ import { DE_LA_CLASE, PALETAS, coloresLegibles, paletaDeFoto } from './colores.j
             });
             vista.addEventListener('pointermove', function (e) {
                 if (!arrastre || arrastre.vista !== vista) return;
-                // Arrastrar a la derecha muestra lo que estaba a la izquierda: por eso se resta
                 var d = arrastre.desde;
+                var t = medir(vista) || { ancho: 100 * d.zoom, alto: 100 * d.zoom };
+                var ancho = vista.clientWidth, alto = vista.clientHeight;
                 poner(limitarEncuadre({
-                    x: d.x - (e.clientX - arrastre.x) * 100 / vista.clientWidth / d.zoom,
-                    y: d.y - (e.clientY - arrastre.y) * 100 / vista.clientHeight / d.zoom,
+                    x: correr(d.x, e.clientX - arrastre.x, ancho, ancho * t.ancho / 100),
+                    y: correr(d.y, e.clientY - arrastre.y, alto, alto * t.alto / 100),
                     zoom: d.zoom,
                 }));
             });
@@ -298,13 +309,35 @@ import { DE_LA_CLASE, PALETAS, coloresLegibles, paletaDeFoto } from './colores.j
         });
     }
 
+    /* La forma de la foto del producto (ancho / alto), o 0 si todavía no cargó. */
+    function formaFicha() {
+        var img = $('f-vista').querySelector('img');
+        return img && img.naturalWidth ? img.naturalWidth / img.naturalHeight : 0;
+    }
+
+    function ponerEncuadreFicha(nuevo) {
+        encuadreFicha = nuevo;
+        $('f-zoom').value = nuevo.zoom;
+        var img = $('f-vista').querySelector('img');
+        if (img) window.Catalogo.aplicarEncuadre(img, encuadreFicha);
+    }
+
     encuadrable([$('f-vista')], $('f-zoom'), $('f-centrar'),
         function () { return encuadreFicha; },
-        function (nuevo) {
-            encuadreFicha = nuevo;
-            var img = $('f-vista').querySelector('img');
-            if (img) window.Catalogo.aplicarEncuadre(img, encuadreFicha);
+        ponerEncuadreFicha,
+        function () {
+            var forma = formaFicha();
+            return forma ? window.Catalogo.tamanoEncuadre(forma, 1, encuadreFicha.zoom) : null;
         });
+
+    /* "Foto entera": el zoom justo para que entre toda en el círculo, con las esquinas: la diagonal de la foto
+     * mide lo mismo que el círculo. */
+    $('f-entera').addEventListener('click', function () {
+        var forma = formaFicha();
+        if (!forma) return;
+        var t = window.Catalogo.tamanoEncuadre(forma, 1, 1);
+        ponerEncuadreFicha(limitarEncuadre({ x: 50, y: 50, zoom: Math.floor(10000 / Math.hypot(t.ancho, t.alto)) / 100 }));
+    });
 
     $('f-borrar').addEventListener('click', function (e) {
         var b = e.target;
@@ -459,6 +492,7 @@ import { DE_LA_CLASE, PALETAS, coloresLegibles, paletaDeFoto } from './colores.j
     var archivoFondo = null;
     var veloFondo = 0.55;
     var encuadreFondo = CENTRO;
+    var formaFondo = 0; // ancho / alto de la foto de fondo, cuando ya se midió
     var respetarColores = false;
     var coloresOriginales = null;
     var siguientePaleta = 0;
@@ -477,16 +511,37 @@ import { DE_LA_CLASE, PALETAS, coloresLegibles, paletaDeFoto } from './colores.j
         return Array.prototype.slice.call($('a-pantallas').querySelectorAll('.muestra'));
     }
 
-    /* La foto de fondo en cada pantalla, como la pone estilos.css: cubre todo, corrida al punto
-     * elegido y acercada desde ahí. */
+    /* La forma de la foto de fondo: hace falta para saber de qué tamaño va en cada pantalla. */
+    function medirFondo() {
+        formaFondo = 0;
+        if (!imagenFondo) return;
+        var pedida = imagenFondo;
+        var medida = new Image();
+        medida.onload = function () {
+            if (pedida !== imagenFondo) return; // ya eligieron otra
+            formaFondo = medida.naturalWidth / medida.naturalHeight;
+            pintarFotoFondo();
+        };
+        medida.src = window.Catalogo.fotoSrc(imagenFondo);
+    }
+
+    /* El tamaño de la foto de fondo en una pantalla, en % de la pantalla. */
+    function tamanoFondo(muestra) {
+        if (!formaFondo || !muestra.clientWidth || !muestra.clientHeight) return null;
+        return window.Catalogo.tamanoEncuadre(formaFondo, muestra.clientWidth / muestra.clientHeight, encuadreFondo.zoom);
+    }
+
+    /* La foto de fondo en cada pantalla, con la misma cuenta que el catálogo: llena la pantalla con zoom 1,
+     * y se agranda o se achica desde ahí; x e y dicen dónde va. */
     function pintarFotoFondo() {
         var e = encuadreFondo;
         muestras().forEach(function (muestra) {
             var foto = muestra.querySelector('.muestra-foto');
+            var t = tamanoFondo(muestra);
             foto.style.backgroundImage = imagenFondo ? 'url("' + window.Catalogo.fotoSrc(imagenFondo) + '")' : '';
             foto.style.backgroundPosition = e.x + '% ' + e.y + '%';
-            foto.style.transformOrigin = e.x + '% ' + e.y + '%';
-            foto.style.transform = 'scale(' + e.zoom + ')';
+            foto.style.backgroundSize = t ? t.ancho + '% ' + t.alto + '%' : 'cover';
+            foto.style.transform = '';
             muestra.querySelector('.muestra-velo').style.opacity = imagenFondo ? veloFondo : 0;
             muestra.classList.toggle('movible', Boolean(imagenFondo));
         });
@@ -519,7 +574,8 @@ import { DE_LA_CLASE, PALETAS, coloresLegibles, paletaDeFoto } from './colores.j
 
     encuadrable(muestras(), $('a-zoom'), $('a-centrar'),
         function () { return encuadreFondo; },
-        function (nuevo) { encuadreFondo = nuevo; pintarFotoFondo(); });
+        function (nuevo) { encuadreFondo = nuevo; $('a-zoom').value = nuevo.zoom; pintarFotoFondo(); },
+        tamanoFondo);
 
     $('a-velo').addEventListener('input', function (e) {
         veloFondo = Number(e.target.value);
@@ -568,6 +624,7 @@ import { DE_LA_CLASE, PALETAS, coloresLegibles, paletaDeFoto } from './colores.j
         avisoColores('', false);
         pintarMuestra();
         $('aspecto').showModal();
+        medirFondo(); // con la ventana abierta, ya se sabe el tamaño de cada pantalla
     }
 
     $('abrir-aspecto').addEventListener('click', abrirAspecto);
@@ -614,6 +671,7 @@ import { DE_LA_CLASE, PALETAS, coloresLegibles, paletaDeFoto } from './colores.j
                 encuadreFondo = CENTRO;
                 $('a-foto-estado').textContent = '';
                 pintarMuestra();
+                medirFondo();
             })
             .catch(function (error) { $('a-foto-estado').textContent = error.message || 'No se pudo subir la foto.'; })
             .finally(function () { $('a-listo').disabled = false; });
@@ -623,6 +681,7 @@ import { DE_LA_CLASE, PALETAS, coloresLegibles, paletaDeFoto } from './colores.j
         imagenFondo = '';
         archivoFondo = null;
         encuadreFondo = CENTRO;
+        formaFondo = 0;
         pintarMuestra();
     });
 

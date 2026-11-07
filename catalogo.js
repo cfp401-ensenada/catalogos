@@ -45,16 +45,64 @@
         return 'fotos/' + foto;
     }
 
-    /* El encuadre que se eligió en el editor: qué parte de la foto se ve, y cuánto se acerca.
-     * Es el mismo en el editor y en el catálogo, así se ve igual en los dos. */
+    /* El tamaño de la foto, en % del marco. Con zoom 1 lo cubre justo (le sobra para un lado), con más
+     * se acerca y con menos se aleja, hasta verse entera con el color del marco alrededor.
+     * foto y marco son ancho / alto. */
+    function tamanoEncuadre(foto, marco, zoom) {
+        var cubre = foto >= marco ? { ancho: 100 * foto / marco, alto: 100 } : { ancho: 100, alto: 100 * marco / foto };
+        return { ancho: cubre.ancho * zoom, alto: cubre.alto * zoom };
+    }
+
+    /* El encuadre que se eligió en el editor: qué parte de la foto se ve (x, y) y de qué tamaño (zoom).
+     * Si la foto sobra, x e y dicen qué parte se ve; si no llega a llenar el marco, dónde va.
+     * Es el mismo en el editor y en el catálogo, así se ve igual en los dos. Hace falta la forma de la
+     * foto, así que se acomoda de nuevo cuando termina de cargar. */
     function aplicarEncuadre(img, encuadre) {
-        var e = encuadre || { x: 50, y: 50, zoom: 1 };
-        img.style.width = '100%';
-        img.style.height = '100%';
-        img.style.objectFit = 'cover';
-        img.style.objectPosition = e.x + '% ' + e.y + '%';
-        img.style.transformOrigin = e.x + '% ' + e.y + '%';
-        img.style.transform = 'scale(' + e.zoom + ')';
+        img.encuadre = encuadre || { x: 50, y: 50, zoom: 1 };
+        if (!img.esperaCarga) {
+            img.esperaCarga = true;
+            img.addEventListener('load', function () { ubicar(img); });
+        }
+        ubicar(img);
+    }
+
+    function ubicar(img) {
+        var e = img.encuadre;
+        var s = img.style;
+        var marco = img.parentElement;
+        if (!img.naturalWidth || !img.naturalHeight || !marco) {
+            // Mientras carga: que llene el marco
+            s.position = ''; s.left = ''; s.top = ''; s.maxWidth = ''; s.transform = '';
+            s.width = '100%'; s.height = '100%'; s.objectFit = 'cover';
+            s.objectPosition = e.x + '% ' + e.y + '%';
+            return;
+        }
+        var deMarco = marco.clientWidth && marco.clientHeight ? marco.clientWidth / marco.clientHeight : 1;
+        var t = tamanoEncuadre(img.naturalWidth / img.naturalHeight, deMarco, e.zoom);
+        if (getComputedStyle(marco).position === 'static') marco.style.position = 'relative';
+        s.position = 'absolute'; s.maxWidth = 'none'; s.objectFit = 'cover'; s.transform = '';
+        s.width = t.ancho + '%';
+        s.height = t.alto + '%';
+        s.left = (100 - t.ancho) * e.x / 100 + '%';
+        s.top = (100 - t.alto) * e.y / 100 + '%';
+    }
+
+    /* La foto de fondo, con la misma cuenta: el marco es la pantalla. Se mide la foto y se agrega una
+     * regla que pisa el "cover" de estilos.css (así anda también con un estilos.css viejo). */
+    function encuadrarFondo(src, e) {
+        var medida = new Image();
+        medida.onload = function () {
+            var forma = (medida.naturalWidth / medida.naturalHeight).toFixed(4);
+            var estilo = document.getElementById('catalogo-fondo');
+            if (!estilo) {
+                estilo = document.createElement('style');
+                estilo.id = 'catalogo-fondo';
+                document.head.appendChild(estilo);
+            }
+            estilo.textContent = 'body::after { background-size: calc(max(100%, 100vh * ' + forma + ') * ' +
+                (Number(e.zoom) || 1) + ') auto; transform: none; }';
+        };
+        medida.src = src;
     }
 
     function elemento(etiqueta, clase, texto) {
@@ -74,8 +122,8 @@
             img.src = src;
             img.alt = producto.nombre;
             img.loading = 'lazy';
-            aplicarEncuadre(img, producto.encuadre);
             circulo.appendChild(img);
+            aplicarEncuadre(img, producto.encuadre);
             art.appendChild(circulo);
         } else {
             art.appendChild(elemento('div', 'producto__foto', producto.emoji || '🛍️'));
@@ -118,6 +166,7 @@
             '--fondo-x': e.x + '%', '--fondo-y': e.y + '%', '--fondo-zoom': String(e.zoom),
         };
         Object.keys(variables).forEach(function (k) { if (variables[k]) raiz.setProperty(k, variables[k]); });
+        if (a.imagen) encuadrarFondo(fotoSrc(a.imagen), e);
         if (a.nombre) {
             var h1 = document.querySelector('.encabezado h1');
             if (h1) h1.textContent = a.nombre;
@@ -135,7 +184,7 @@
     }
 
     window.Catalogo = {
-        WORKER: WORKER, precio: precio, fotoSrc: fotoSrc, aplicarEncuadre: aplicarEncuadre,
+        WORKER: WORKER, precio: precio, fotoSrc: fotoSrc, aplicarEncuadre: aplicarEncuadre, tamanoEncuadre: tamanoEncuadre,
         aplicarAspecto: aplicarAspecto, tarjeta: tarjeta, pintar: pintar,
     };
 
