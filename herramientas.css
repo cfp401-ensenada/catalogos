@@ -7,6 +7,12 @@
     --linea: #d9d4cb;
     --acento: #2f6b4f;
     --peligro: #b3412b;
+    /* El código del modo desarrollador, con los colores de GitHub */
+    --cod-fondo: #f6f8fa;
+    --cod-comentario: #59636e;
+    --cod-texto: #0a3069;
+    --cod-clave: #cf222e;
+    --cod-numero: #0550ae;
     color-scheme: light;
 }
 /* Modo oscuro: el del sistema, salvo que se elija otro con el botón (tema.js) */
@@ -19,6 +25,11 @@
         --linea: #34403a;
         --acento: #6cc39a;
         --peligro: #f08a72;
+        --cod-fondo: #0d1117;
+        --cod-comentario: #9198a1;
+        --cod-texto: #a5d6ff;
+        --cod-clave: #ff7b72;
+        --cod-numero: #79c0ff;
         color-scheme: dark;
     }
 }
@@ -30,6 +41,11 @@
     --linea: #34403a;
     --acento: #6cc39a;
     --peligro: #f08a72;
+    --cod-fondo: #0d1117;
+    --cod-comentario: #9198a1;
+    --cod-texto: #a5d6ff;
+    --cod-clave: #ff7b72;
+    --cod-numero: #79c0ff;
     color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -159,3 +175,35 @@ textarea.mensaje { min-height: 9rem; font-size: 0.95rem; }
 .muestra-boton { font-weight: 600; padding: 2px 10px; border: 2px solid; border-radius: 999px; }
 .aviso-colores { padding: 10px 12px; border-radius: 10px; border: 1px solid #c2770a; display: grid; gap: 4px; }
 .aviso-colores p { margin: 0; }
+
+/* ---------- Modo desarrollador ---------- */
+dialog.dev { width: min(860px, calc(100% - 24px)); }
+a.secundario { display: inline-block; text-decoration: none; color: var(--texto); }
+.dev-estado { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--linea); font-weight: 600; }
+.dev-estado[data-tipo="ok"] { border-color: var(--acento); color: var(--acento); }
+.dev-estado[data-tipo="viejo"] { border-color: #c2770a; }
+.dev-pasos { margin: 0; padding-left: 1.4rem; display: grid; gap: 4px; }
+kbd {
+    font: 600 0.85em ui-monospace, Consolas, monospace; padding: 1px 6px;
+    border: 1px solid var(--linea); border-bottom-width: 2px; border-radius: 5px; background: var(--fondo);
+}
+.dev-archivo { border: 1px solid var(--linea); border-radius: 10px; overflow: hidden; }
+.dev-cabeza {
+    display: flex; justify-content: space-between; gap: 10px; padding: 8px 12px;
+    font: 600 0.85rem ui-monospace, Consolas, monospace; background: var(--fondo); border-bottom: 1px solid var(--linea);
+}
+.dev-cabeza span:last-child { color: var(--suave); font-weight: 400; }
+.dev-codigo {
+    margin: 0; max-height: 50vh; overflow: auto; padding: 8px 0; background: var(--cod-fondo);
+    font: 0.82rem/1.55 ui-monospace, Consolas, monospace; tab-size: 4; counter-reset: linea;
+}
+.dev-codigo .l { display: block; padding-right: 16px; white-space: pre; }
+.dev-codigo .l::before {
+    counter-increment: linea; content: counter(linea); display: inline-block; width: 3.2em;
+    padding-right: 1em; margin-right: 0.6em; text-align: right; color: var(--suave);
+    border-right: 1px solid var(--linea); user-select: none;
+}
+.dev-codigo .c { color: var(--cod-comentario); font-style: italic; }
+.dev-codigo .s { color: var(--cod-texto); }
+.dev-codigo .k { color: var(--cod-clave); }
+.dev-codigo .n { color: var(--cod-numero); }

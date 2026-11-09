@@ -116,6 +116,156 @@ import { DE_LA_CLASE, PALETAS, coloresLegibles, paletaDeFoto } from './colores.j
             .catch(function () { /* sin la página no se puede saber: no se avisa */ });
     }
 
+    /* ---------- Modo desarrollador ----------
+     * Muestra el catalogo.js de este sitio (el nuevo) y lo compara con el que tiene publicado la
+     * página del alumno. Para encontrarlo se lee su index.html: el <script> que dice catalogo.js.
+     * Si apunta al compartido del CFP (los emprendimientos), se actualiza solo. GitHub Pages deja
+     * leer sus archivos desde otro sitio, y ?v= evita que nos devuelva una copia guardada. */
+    var NUEVO_URL = new URL('../catalogo.js', location.href).href;
+    var codigoNuevo = '';
+
+    function igualar(texto) {
+        return String(texto).replace(/\r\n?/g, '\n').replace(/[ \t]+$/gm, '').trim();
+    }
+
+    function sinCache(url) {
+        var u = new URL(url);
+        u.searchParams.set('v', Date.now());
+        return u.href;
+    }
+
+    /* Colores como en GitHub: comentarios, textos, números y palabras de JavaScript. Todo va con
+     * textContent, así el código se ve tal cual y nunca se interpreta como HTML. */
+    var PIEZAS = /(\/\*[\s\S]*?\*\/|\/\/[^\n]*)|('(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*")|\b(var|let|const|function|return|if|else|for|while|new|typeof|try|catch|throw|null|true|false|this|in|of)\b|\b(\d+(?:\.\d+)?)\b/g;
+
+    function pintarCodigo(texto) {
+        var pre = $('d-codigo');
+        pre.replaceChildren();
+        var linea = document.createElement('span');
+        linea.className = 'l';
+        function agregar(trozo, clase) {
+            trozo.split('\n').forEach(function (parte, i) {
+                if (i > 0) {
+                    pre.appendChild(linea);
+                    linea = document.createElement('span');
+                    linea.className = 'l';
+                }
+                if (!parte) return;
+                if (!clase) return linea.appendChild(document.createTextNode(parte));
+                var s = document.createElement('span');
+                s.className = clase;
+                s.textContent = parte;
+                linea.appendChild(s);
+            });
+        }
+        var desde = 0;
+        texto.replace(PIEZAS, function (todo, comentario, cadena, clave, numero, donde) {
+            agregar(texto.slice(desde, donde), '');
+            agregar(todo, comentario ? 'c' : cadena ? 's' : clave ? 'k' : 'n');
+            desde = donde + todo.length;
+            return todo;
+        });
+        agregar(texto.slice(desde), '');
+        pre.appendChild(linea);
+        $('d-lineas').textContent = texto.split('\n').length + ' líneas';
+    }
+
+    /* https://usuario.github.io/repo/catalogo.js → el editor de GitHub de ese archivo */
+    function editarEnGithub(url) {
+        var u = new URL(url);
+        var cuenta = /^([^.]+)\.github\.io$/i.exec(u.hostname);
+        if (!cuenta) return null;
+        var partes = u.pathname.split('/').filter(Boolean);
+        var repo = partes.length > 1 ? partes.shift() : cuenta[1] + '.github.io';
+        var base = 'https://github.com/' + cuenta[1] + '/' + repo;
+        return { editar: base + '/edit/main/' + partes.join('/'), repo: base };
+    }
+
+    function estadoDev(tipo, texto) {
+        $('d-estado').dataset.tipo = tipo;
+        $('d-estado').textContent = texto;
+        $('d-pasos').hidden = tipo !== 'viejo' && tipo !== 'duda';
+        // Si ya está al día, no hace falta ir a GitHub
+        if (tipo === 'ok') $('d-github').hidden = $('d-ayuda').hidden = true;
+    }
+
+    function revisarVersion() {
+        estadoDev('espera', 'Mirando qué versión tiene tu página…');
+        $('d-github').hidden = true;
+        $('d-ayuda').hidden = true;
+        var publicado = null;
+        fetch(sinCache(NUEVO_URL), { cache: 'no-store' })
+            .then(function (r) { if (!r.ok) throw new Error(); return r.text(); })
+            .then(function (texto) {
+                codigoNuevo = texto;
+                pintarCodigo(texto.replace(/\r\n?/g, '\n').replace(/\n$/, ''));
+                $('d-copiar').disabled = false;
+                if (!catalogo.enlace) throw new Error('sin-enlace');
+                return fetch(sinCache(catalogo.enlace), { cache: 'no-store' });
+            })
+            .then(function (r) { if (!r.ok) throw new Error('sin-pagina'); return r.text(); })
+            .then(function (html) {
+                var etiqueta = /<script[^>]*\ssrc\s*=\s*["']([^"']*catalogo\.js[^"']*)["']/i.exec(html);
+                if (!etiqueta) throw new Error('sin-script');
+                publicado = new URL(etiqueta[1], catalogo.enlace);
+                publicado.search = '';
+                if (publicado.href === NUEVO_URL) throw new Error('compartido');
+                var github = editarEnGithub(publicado.href);
+                if (github) {
+                    $('d-github').href = github.editar;
+                    $('d-github').hidden = false;
+                    $('d-ayuda').textContent = 'Si GitHub dice que no encuentra el archivo, entrá a tu repositorio (' +
+                        github.repo.replace('https://', '') + '), abrí catalogo.js y tocá el lápiz ✏️.';
+                    $('d-ayuda').hidden = false;
+                }
+                return fetch(sinCache(publicado.href), { cache: 'no-store' });
+            })
+            .then(function (r) { if (!r.ok) throw new Error('sin-archivo'); return r.text(); })
+            .then(function (texto) {
+                if (igualar(texto) === igualar(codigoNuevo)) estadoDev('ok', '✅ Tu página ya tiene la versión nueva de catalogo.js. No tenés que hacer nada.');
+                else estadoDev('viejo', '⚠️ Tu página tiene una versión vieja de catalogo.js. Para actualizarla:');
+            })
+            .catch(function (error) {
+                var por = error && error.message;
+                if (por === 'compartido') estadoDev('ok', '✅ Tu catálogo usa el catalogo.js compartido del CFP: se actualiza solo. No tenés que hacer nada.');
+                else if (!codigoNuevo) estadoDev('duda', 'No se pudo cargar el código. Revisá la conexión y tocá Revisar de nuevo.');
+                else if (por === 'sin-archivo') estadoDev('viejo', '⚠️ Tu página no encuentra su catalogo.js. Subilo con estos pasos (en GitHub: Add file → Create new file, con el nombre catalogo.js):');
+                else estadoDev('duda', 'No pude revisar tu página (todavía no está publicada, o es otra dirección). Si tu catálogo es de la clase, actualizá catalogo.js así:');
+            });
+    }
+
+    function copiarTexto(texto) {
+        if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(texto);
+        return new Promise(function (listo, fallo) {
+            var area = document.createElement('textarea');
+            area.value = texto;
+            area.setAttribute('readonly', '');
+            area.style.position = 'fixed';
+            area.style.opacity = '0';
+            $('dev').appendChild(area);
+            area.select();
+            var bien = document.execCommand('copy');
+            area.remove();
+            if (bien) listo(); else fallo();
+        });
+    }
+
+    $('abrir-dev').addEventListener('click', function () {
+        $('dev').showModal();
+        revisarVersion();
+    });
+    $('d-revisar').addEventListener('click', revisarVersion);
+    $('d-cerrar').addEventListener('click', function () { $('dev').close(); });
+    $('d-copiar').addEventListener('click', function () {
+        var b = $('d-copiar');
+        copiarTexto(codigoNuevo).then(function () {
+            b.textContent = '✅ ¡Copiado! Ahora pegalo en GitHub';
+        }, function () {
+            b.textContent = 'No se pudo copiar: elegí el código con el mouse y Ctrl + C';
+        });
+        setTimeout(function () { b.textContent = '📋 Copiar todo'; }, 4000);
+    });
+
     /* ---------- La lista ---------- */
     function miniatura(p) {
         var caja = document.createElement('span');

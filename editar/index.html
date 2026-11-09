@@ -36,6 +36,7 @@
                 <button type="button" id="abrir-aspecto" class="secundario">🎨 Cómo se ve</button>
                 <label class="secundario" for="importar">Importar productos.csv</label>
                 <input type="file" id="importar" accept=".csv,text/csv" hidden>
+                <button type="button" id="abrir-dev" class="secundario">🧑‍💻 Modo desarrollador</button>
                 <button type="button" id="salir" class="enlace">Salir</button>
             </div>
             <div class="aviso-colores" id="aviso-conexion" role="alert" hidden>
@@ -164,6 +165,35 @@
                 <button type="submit" id="a-listo" class="principal">Listo</button>
             </div>
         </form>
+    </dialog>
+
+    <dialog id="dev" class="dev">
+        <div class="ficha">
+            <h2>🧑‍💻 Modo desarrollador</h2>
+            <p>Este es <code>catalogo.js</code>: el archivo que hace que tu página muestre lo que cargás en el editor. Es <strong>el mismo para todos los catálogos</strong>: lo tuyo (tu dirección y tu WhatsApp) está en tu <code>index.html</code>, así que este se copia entero, sin cambiarle nada.</p>
+            <div class="dev-estado" id="d-estado" data-tipo="espera" role="status">Mirando qué versión tiene tu página…</div>
+            <ol class="dev-pasos" id="d-pasos" hidden>
+                <li>Tocá <strong>Copiar todo</strong>.</li>
+                <li>Tocá <strong>Abrir catalogo.js en GitHub</strong> (te pide entrar con tu cuenta).</li>
+                <li>Hacé clic en el código de GitHub, apretá <kbd>Ctrl</kbd> + <kbd>A</kbd> para elegir todo y <kbd>Ctrl</kbd> + <kbd>V</kbd> para pegar el nuevo encima.</li>
+                <li>Tocá <strong>Commit changes…</strong> y después otra vez <strong>Commit changes</strong>.</li>
+                <li>Esperá un par de minutos y tocá <strong>Revisar de nuevo</strong>.</li>
+            </ol>
+            <div class="foto-botones">
+                <button type="button" id="d-copiar" class="principal" disabled>📋 Copiar todo</button>
+                <a id="d-github" class="secundario" target="_blank" rel="noopener" hidden>Abrir catalogo.js en GitHub ↗</a>
+                <button type="button" id="d-revisar" class="enlace">Revisar de nuevo</button>
+            </div>
+            <p class="nota" id="d-ayuda" hidden></p>
+            <div class="dev-archivo">
+                <div class="dev-cabeza"><span>catalogo.js</span><span id="d-lineas"></span></div>
+                <pre class="dev-codigo" id="d-codigo" tabindex="0" aria-label="El código de catalogo.js"></pre>
+            </div>
+            <div class="ficha-pie">
+                <span class="separador"></span>
+                <button type="button" id="d-cerrar" class="secundario">Cerrar</button>
+            </div>
+        </div>
     </dialog>
 
     <script src="../catalogo.js"></script>
