@@ -56,7 +56,7 @@
                 </div>
                 <div class="tabla">
                     <table>
-                        <thead><tr><th>Nombre</th><th>Dirección</th><th>Productos</th><th>Último cambio</th><th></th></tr></thead>
+                        <thead><tr><th>Nombre</th><th>Dirección</th><th>Productos</th><th>Último cambio</th><th>🧑‍💻 catalogo.js y repo</th><th></th></tr></thead>
                         <tbody id="filas"></tbody>
                     </table>
                 </div>
@@ -114,7 +114,91 @@
             return iso ? new Date(iso).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }) : '';
         }
 
+        /* ---------- Modo desarrollador, para todos los catálogos de una vez ----------
+         * Lo mismo que el del editor: lee el index.html publicado, mira qué catalogo.js usa y lo
+         * compara con el de este sitio. Y deja a mano el repo: la carpeta en la organización o el
+         * repositorio del alumno, para subir los archivos sin buscarlos. */
+        var NUEVO_URL = new URL('../catalogo.js', location.href).href;
+        var REPO_CFP = 'https://github.com/cfp401-ensenada/catalogos';
+        var nuevo = null;
+        function sinCache(url) { var u = new URL(url); u.searchParams.set('v', Date.now()); return u.href; }
+        function igualar(t) { return String(t).replace(/\r\n?/g, '\n').replace(/[ \t]+$/gm, '').trim(); }
+        function traer(url) {
+            return fetch(sinCache(url), { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error(String(r.status)); return r.text(); });
+        }
+        function codigoNuevo() { return nuevo || (nuevo = traer(NUEVO_URL)); }
+        function repoDe(cat) {
+            if (!cat.enlace || cat.enlace.indexOf('cfp401-ensenada.github.io/catalogos') >= 0) {
+                return { ver: REPO_CFP + '/tree/main/' + cat.slug, subir: REPO_CFP + '/upload/main/' + cat.slug };
+            }
+            var u = new URL(cat.enlace);
+            var cuenta = /^([^.]+)\.github\.io$/i.exec(u.hostname);
+            if (!cuenta) return null;
+            var partes = u.pathname.split('/').filter(Boolean);
+            var base = 'https://github.com/' + cuenta[1] + '/' + (partes[0] || cuenta[1] + '.github.io');
+            return { ver: base, subir: base + '/upload/main', editar: base + '/edit/main/catalogo.js' };
+        }
+        function enlace(texto, href) {
+            var a = document.createElement('a');
+            a.textContent = texto;
+            a.href = href;
+            a.target = '_blank';
+            a.rel = 'noopener';
+            a.className = 'enlace';
+            return a;
+        }
+        function celdaDev(cat) {
+            var td = document.createElement('td');
+            var estado = document.createElement('span');
+            estado.className = 'nota';
+            estado.textContent = 'Mirando…';
+            var acciones = document.createElement('div');
+            acciones.className = 'acciones';
+            var repo = repoDe(cat);
+            if (repo) acciones.append(enlace('📁 Repo', repo.ver), enlace('⬆️ Subir archivos', repo.subir));
+            td.append(estado, acciones);
+            revisar(cat, estado, acciones, repo);
+            return td;
+        }
+        function revisar(cat, estado, acciones, repo) {
+            var pagina = enlaceDe(cat);
+            var publicado;
+            codigoNuevo()
+                .then(function () { return traer(pagina); })
+                .then(function (html) {
+                    var etiqueta = /<script[^>]*\ssrc\s*=\s*["']([^"']*catalogo\.js[^"']*)["']/i.exec(html);
+                    if (!etiqueta) throw new Error('sin-script');
+                    publicado = new URL(etiqueta[1], pagina);
+                    publicado.search = '';
+                    if (publicado.href === NUEVO_URL) throw new Error('compartido');
+                    return traer(publicado.href);
+                })
+                .then(function (texto) {
+                    return codigoNuevo().then(function (n) {
+                        if (igualar(texto) === igualar(n)) { estado.textContent = '✅ Al día'; return; }
+                        estado.textContent = '⚠️ Versión vieja';
+                        var copiar = document.createElement('button');
+                        copiar.type = 'button';
+                        copiar.className = 'enlace';
+                        copiar.textContent = '📋 Copiar el nuevo';
+                        copiar.addEventListener('click', function () {
+                            navigator.clipboard.writeText(n).then(function () { copiar.textContent = '✅ Copiado: pegalo en GitHub'; });
+                        });
+                        acciones.prepend(copiar);
+                        if (repo && repo.editar) acciones.append(enlace('✏️ Editar catalogo.js', repo.editar));
+                    });
+                })
+                .catch(function (error) {
+                    var por = error && error.message;
+                    if (por === 'compartido') estado.textContent = '✅ Usa el compartido (se actualiza solo)';
+                    else if (por === 'sin-script') estado.textContent = '❔ Su página no carga catalogo.js';
+                    else if (por === '404') estado.textContent = '❔ Todavía no está publicada';
+                    else estado.textContent = '❔ No se pudo revisar';
+                });
+        }
+
         function cargar() {
+            nuevo = null; // con "Actualizar la lista" se vuelve a leer el catalogo.js nuevo
             return pedir('/admin/catalogos', 'GET').then(function (lista) {
                 lista.sort(function (a, b) { return a.nombre.localeCompare(b.nombre, 'es'); });
                 $('filas').replaceChildren.apply($('filas'), lista.map(function (cat) {
@@ -124,6 +208,7 @@
                         td.textContent = t;
                         tr.appendChild(td);
                     });
+                    tr.appendChild(celdaDev(cat));
                     var td = document.createElement('td');
                     var b = document.createElement('button');
                     b.type = 'button';

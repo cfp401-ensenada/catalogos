@@ -677,6 +677,59 @@ import { DE_LA_CLASE, PALETAS, coloresLegibles, paletaDeFoto } from './colores.j
     var coloresOriginales = null;
     var siguientePaleta = 0;
 
+    /* El diseño: letras, botones, productos y adornos. La lista sale de catalogo.js (DISENOS), que
+     * es el que después lo aplica en la página: así el editor nunca ofrece algo que la página no sabe. */
+    var DISENOS = window.Catalogo.DISENOS;
+    var POR_DEFECTO = { letras: 'elegante', botones: 'pildora', tarjetas: 'clasica', adornos: true };
+    var diseno = Object.assign({}, POR_DEFECTO);
+    // En el editor se cargan todas las letras de una vez, para que cada chip se vea con la suya
+    Object.keys(DISENOS.letras).forEach(function (k) { window.Catalogo.cargarFuentes(DISENOS.letras[k].fuentes); });
+
+    function armarOpciones(id, campo, opciones, conLetra) {
+        $(id).replaceChildren.apply($(id), Object.keys(opciones).map(function (clave) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.dataset.valor = clave;
+            b.textContent = conLetra ? opciones[clave].nombre : opciones[clave];
+            if (conLetra) {
+                b.style.fontFamily = opciones[clave].marca;
+                b.style.fontWeight = opciones[clave].peso;
+            }
+            b.addEventListener('click', function () {
+                diseno[campo] = clave;
+                marcarDiseno();
+                pintarMuestra();
+            });
+            return b;
+        }));
+    }
+    armarOpciones('a-letras', 'letras', DISENOS.letras, true);
+    armarOpciones('a-botones', 'botones', DISENOS.botones);
+    armarOpciones('a-tarjetas', 'tarjetas', DISENOS.tarjetas);
+
+    function marcarDiseno() {
+        [['a-letras', 'letras'], ['a-botones', 'botones'], ['a-tarjetas', 'tarjetas']].forEach(function (par) {
+            $(par[0]).querySelectorAll('button').forEach(function (b) {
+                b.setAttribute('aria-pressed', String(b.dataset.valor === diseno[par[1]]));
+            });
+        });
+        $('a-adornos').checked = diseno.adornos !== false;
+    }
+
+    $('a-adornos').addEventListener('change', function (e) {
+        diseno.adornos = e.target.checked;
+        pintarMuestra();
+    });
+    // Una combinación al azar de letras, botones y productos (los colores no se tocan)
+    $('a-sorpresa').addEventListener('click', function () {
+        ['letras', 'botones', 'tarjetas'].forEach(function (campo) {
+            var claves = Object.keys(DISENOS[campo]).filter(function (k) { return k !== diseno[campo]; });
+            diseno[campo] = claves[Math.floor(Math.random() * claves.length)];
+        });
+        marcarDiseno();
+        pintarMuestra();
+    });
+
     function coloresElegidos() {
         return { fondo: $('a-fondo').value, texto: $('a-texto').value, acento: $('a-acento').value };
     }
@@ -741,6 +794,16 @@ import { DE_LA_CLASE, PALETAS, coloresLegibles, paletaDeFoto } from './colores.j
             muestra.querySelector('.muestra-precio').style.background = c.acento;
             muestra.querySelector('.muestra-precio').style.color = c.sobreAcento;
             muestra.querySelector('.muestra-boton').style.color = c.acento;
+            // El diseño: la letra del nombre y del texto, y la forma de botones y productos
+            var letras = DISENOS.letras[diseno.letras] || DISENOS.letras.elegante;
+            nombre.style.fontFamily = letras.marca;
+            nombre.style.fontWeight = letras.peso;
+            nombre.style.fontSize = diseno.letras === 'elegante' || diseno.letras === 'artesanal' ? '' : '1.25rem';
+            muestra.style.fontFamily = letras.texto;
+            muestra.style.setProperty('--m-acento', c.acento);
+            muestra.style.setProperty('--m-sobre', c.sobreAcento);
+            muestra.dataset.botones = diseno.botones;
+            muestra.dataset.tarjetas = diseno.tarjetas;
         });
         pintarFotoFondo();
         $('a-encuadre').hidden = !imagenFondo;
@@ -795,6 +858,13 @@ import { DE_LA_CLASE, PALETAS, coloresLegibles, paletaDeFoto } from './colores.j
         imagenFondo = a.imagen === 'pagina' ? (dePagina && dePagina.imagen) || '' : a.imagen || '';
         veloFondo = a.imagen ? a.velo : 0.55;
         encuadreFondo = a.imagen && a.encuadre ? limitarEncuadre(a.encuadre) : CENTRO;
+        diseno = {
+            letras: DISENOS.letras[a.letras] ? a.letras : POR_DEFECTO.letras,
+            botones: DISENOS.botones[a.botones] ? a.botones : POR_DEFECTO.botones,
+            tarjetas: DISENOS.tarjetas[a.tarjetas] ? a.tarjetas : POR_DEFECTO.tarjetas,
+            adornos: a.adornos !== false,
+        };
+        marcarDiseno();
         archivoFondo = null;
         respetarColores = false;
         coloresOriginales = null;
@@ -900,6 +970,10 @@ import { DE_LA_CLASE, PALETAS, coloresLegibles, paletaDeFoto } from './colores.j
             imagen: dePagina && imagenFondo && imagenFondo === dePagina.imagen ? 'pagina' : imagenFondo,
             velo: imagenFondo ? veloFondo : 0,
             encuadre: imagenFondo ? encuadreFondo : undefined,
+            letras: diseno.letras,
+            botones: diseno.botones,
+            tarjetas: diseno.tarjetas,
+            adornos: diseno.adornos !== false,
         };
         marcar(true);
         $('aspecto').close();
