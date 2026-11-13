@@ -38,10 +38,14 @@
         return 'https://wa.me/' + numero + '?text=' + encodeURIComponent('Hola, quiero consultar por: ' + nombre);
     }
 
-    /* Una foto del editor ("w:...") vive en el Worker; cualquier otra, en la carpeta fotos/. */
+    /* Una foto del editor ("w:...") vive en el Worker; una dirección completa (el fondo con que se
+       armó la página), donde dice; cualquier otra, en la carpeta fotos/. */
+    var fondoPagina = ''; // la foto de fondo con que se armó la página, si tiene ("pagina" en el editor)
     function fotoSrc(foto) {
         if (!foto) return '';
+        if (foto === 'pagina') return fondoPagina;
         if (foto.indexOf('w:') === 0) return WORKER + '/foto/' + foto.slice(2);
+        if (/^https?:\/\//.test(foto)) return foto;
         return 'fotos/' + foto;
     }
 
@@ -156,17 +160,18 @@
     function aplicarAspecto(a) {
         if (!a) return;
         var raiz = document.documentElement.style;
-        var e = (a.imagen && a.encuadre) || { x: 50, y: 50, zoom: 1 };
+        var src = fotoSrc(a.imagen);
+        var e = (src && a.encuadre) || { x: 50, y: 50, zoom: 1 };
         var variables = {
             '--fondo': a.fondo, '--texto': a.texto, '--acento': a.acento, '--marca': a.marca,
             '--sobre-acento': a.sobreAcento, '--linea': a.acento,
-            '--imagen-de-fondo': a.imagen ? 'url("' + fotoSrc(a.imagen) + '")' : 'none',
-            '--velo': a.imagen ? String(a.velo) : '0',
+            '--imagen-de-fondo': src ? 'url("' + src + '")' : 'none',
+            '--velo': src ? String(a.velo) : '0',
             // El encuadre de la foto de fondo, el mismo que el de las fotos de los productos
             '--fondo-x': e.x + '%', '--fondo-y': e.y + '%', '--fondo-zoom': String(e.zoom),
         };
         Object.keys(variables).forEach(function (k) { if (variables[k]) raiz.setProperty(k, variables[k]); });
-        if (a.imagen) encuadrarFondo(fotoSrc(a.imagen), e);
+        if (src) encuadrarFondo(src, e);
         if (a.nombre) {
             var h1 = document.querySelector('.encabezado h1');
             if (h1) h1.textContent = a.nombre;
@@ -187,6 +192,16 @@
         WORKER: WORKER, precio: precio, fotoSrc: fotoSrc, aplicarEncuadre: aplicarEncuadre, tamanoEncuadre: tamanoEncuadre,
         aplicarAspecto: aplicarAspecto, tarjeta: tarjeta, pintar: pintar,
     };
+
+    /* La foto de fondo propia de la página (url("fondo.jpg") en su <style>) el navegador la busca
+       al lado de estilos.css, que está en la carpeta de arriba, y no la encuentra. Se pasa a la
+       dirección completa, la de la carpeta de la página. */
+    var raizCss = document.documentElement;
+    var fondoPropio = /^url\(\s*["']?([^"')]+)["']?\s*\)$/.exec(getComputedStyle(raizCss).getPropertyValue('--imagen-de-fondo').trim());
+    if (fondoPropio) {
+        fondoPagina = new URL(fondoPropio[1], document.baseURI).href;
+        raizCss.style.setProperty('--imagen-de-fondo', 'url("' + fondoPagina + '")');
+    }
 
     var script = document.currentScript;
     var slug = script && script.dataset.catalogo;

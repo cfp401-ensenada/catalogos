@@ -22,6 +22,7 @@ import { DE_LA_CLASE, PALETAS, coloresLegibles, paletaDeFoto } from './colores.j
     var CENTRO = { x: 50, y: 50, zoom: 1 };
     var encuadreFicha = CENTRO;
     var aspecto = null; // cómo se ve: null es el diseño con el que se armó
+    var dePagina = null; // ese diseño, leído de la página publicada (colores y foto de fondo)
 
     function guardarLocal(clave, valor) {
         try {
@@ -102,8 +103,36 @@ import { DE_LA_CLASE, PALETAS, coloresLegibles, paletaDeFoto } from './colores.j
     /* ¿La página publicada le pregunta al editor? Se mira su HTML: GitHub Pages deja leerlo desde
      * otro sitio. Si dice data-catalogo con otra dirección, o vacía, lo que se guarda acá no se ve
      * allá. Si la página no se encuentra (todavía no la subió, o el link es otro), no se avisa nada. */
+    /* Los colores y la foto de fondo con que se armó la página (los :root de su <style>). Así
+     * "Cómo se ve" arranca mostrando la página como está, no el diseño de la clase. */
+    function disenoDePagina(html, enlace) {
+        function variable(nombre) {
+            var m = new RegExp('--' + nombre + ':\\s*([^;]+);').exec(html);
+            return m ? m[1].trim() : '';
+        }
+        function color(nombre) {
+            var v = variable(nombre);
+            return /^#[0-9a-f]{6}$/i.test(v) ? v.toLowerCase() : '';
+        }
+        var d = { fondo: color('fondo'), texto: color('texto'), acento: color('acento') };
+        var foto = /^url\(\s*["']?([^"')]+)["']?\s*\)$/.exec(variable('imagen-de-fondo'));
+        // La foto propia solo se puede conservar con el catalogo.js compartido (el que entiende
+        // "pagina"); el de un alumno puede ser una copia vieja
+        var js = /<script[^>]*src\s*=\s*["']([^"']*catalogo\.js)["']/i.exec(html);
+        var compartido = false;
+        try { compartido = Boolean(js) && new URL(js[1], enlace).href === NUEVO_URL; } catch (e) { /* sin script */ }
+        if (foto && compartido) {
+            try {
+                d.imagen = new URL(foto[1], enlace).href;
+                d.velo = Number(variable('velo')) || 0;
+            } catch (e) { /* una dirección rara: sin foto */ }
+        }
+        return d.fondo || d.texto || d.acento || d.imagen ? d : null;
+    }
+
     function revisarConexion() {
         $('aviso-conexion').hidden = true;
+        dePagina = null;
         $('aviso-slug').textContent = catalogo.slug || '';
         if (!catalogo.enlace || !catalogo.slug) return;
         fetch(catalogo.enlace, { cache: 'no-store' })
@@ -111,6 +140,7 @@ import { DE_LA_CLASE, PALETAS, coloresLegibles, paletaDeFoto } from './colores.j
             .then(function (html) {
                 var dicho = /data-catalogo\s*=\s*["']([^"']*)["']/.exec(html);
                 if (!html) return;
+                dePagina = disenoDePagina(html, catalogo.enlace);
                 $('aviso-conexion').hidden = Boolean(dicho && dicho[1] === catalogo.slug);
             })
             .catch(function () { /* sin la página no se puede saber: no se avisa */ });
@@ -756,13 +786,13 @@ import { DE_LA_CLASE, PALETAS, coloresLegibles, paletaDeFoto } from './colores.j
     }
 
     function abrirAspecto() {
-        var a = aspecto || {};
+        var a = aspecto || dePagina || {}; // sin cambios guardados, la página como está publicada
         $('a-nombre').value = a.nombre || catalogo.nombre;
         $('a-whatsapp').value = (a.numero || '').replace(/^549/, '');
         $('a-fondo').value = a.fondo || DE_LA_CLASE.fondo;
         $('a-texto').value = a.texto || DE_LA_CLASE.texto;
         $('a-acento').value = a.acento || DE_LA_CLASE.acento;
-        imagenFondo = a.imagen || '';
+        imagenFondo = a.imagen === 'pagina' ? (dePagina && dePagina.imagen) || '' : a.imagen || '';
         veloFondo = a.imagen ? a.velo : 0.55;
         encuadreFondo = a.imagen && a.encuadre ? limitarEncuadre(a.encuadre) : CENTRO;
         archivoFondo = null;
@@ -866,7 +896,8 @@ import { DE_LA_CLASE, PALETAS, coloresLegibles, paletaDeFoto } from './colores.j
             acento: c.acento,
             marca: c.marca,
             sobreAcento: c.sobreAcento,
-            imagen: imagenFondo,
+            // La foto propia de la página no se sube: se guarda "pagina" y la pone la página misma
+            imagen: dePagina && imagenFondo && imagenFondo === dePagina.imagen ? 'pagina' : imagenFondo,
             velo: imagenFondo ? veloFondo : 0,
             encuadre: imagenFondo ? encuadreFondo : undefined,
         };
