@@ -200,15 +200,65 @@ import { DE_LA_CLASE, PALETAS, coloresLegibles, paletaDeFoto } from './colores.j
         $('d-lineas').textContent = texto.split('\n').length + ' líneas';
     }
 
-    /* https://usuario.github.io/repo/catalogo.js → el editor de GitHub de ese archivo */
-    function editarEnGithub(url) {
-        var u = new URL(url);
+    /* De un link de GitHub Pages al archivo en GitHub, para editarlo ahí.
+     * El link solo no alcanza: https://ana.github.io/tienda/ puede ser el repo "tienda" o la
+     * carpeta "tienda" del repo "ana.github.io", y la rama puede ser main, master o gh-pages.
+     * Eso se le pregunta a la API pública de GitHub (sin clave), una vez por repo. */
+    var repos = {};
+    function infoRepo(cuenta, nombre) {
+        var clave = (cuenta + '/' + nombre).toLowerCase();
+        if (!repos[clave]) {
+            var api = 'https://api.github.com/repos/' + cuenta + '/' + nombre;
+            repos[clave] = fetch(api)
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (info) {
+                    if (!info) return null;
+                    // Si tiene rama gh-pages, se publica desde ahí; si no, desde la principal
+                    return fetch(api + '/branches/gh-pages')
+                        .then(function (r) { return { url: info.html_url, rama: r.ok ? 'gh-pages' : info.default_branch }; })
+                        .catch(function () { return { url: info.html_url, rama: info.default_branch }; });
+                })
+                .catch(function () { return null; });
+        }
+        return repos[clave];
+    }
+    /* https://usuario.github.io/repo/carpeta/catalogo.js → { url del repo, rama, ruta adentro } */
+    function ubicarEnGithub(link) {
+        var u;
+        try { u = new URL(link); } catch (e) { return Promise.resolve(null); }
+        var partes = u.pathname.split('/').filter(Boolean).map(decodeURIComponent);
         var cuenta = /^([^.]+)\.github\.io$/i.exec(u.hostname);
-        if (!cuenta) return null;
-        var partes = u.pathname.split('/').filter(Boolean);
-        var repo = partes.length > 1 ? partes.shift() : cuenta[1] + '.github.io';
-        var base = 'https://github.com/' + cuenta[1] + '/' + repo;
-        return { editar: base + '/edit/main/' + partes.join('/'), repo: base };
+        if (!cuenta) return Promise.resolve(null);   // un dominio propio: no hay forma de saber el repo
+        var usuario = cuenta[1].toLowerCase();
+        var deUsuario = function () {
+            return infoRepo(usuario, usuario + '.github.io').then(function (info) {
+                return info && { url: info.url, rama: info.rama, ruta: partes };
+            });
+        };
+        if (!partes.length || partes[0].indexOf('.') >= 0) return deUsuario();
+        return infoRepo(usuario, partes[0]).then(function (info) {
+            return info ? { url: info.url, rama: info.rama, ruta: partes.slice(1) } : deUsuario();
+        });
+    }
+    /* El link para editar ese archivo en GitHub (y el del repo, para la ayuda) */
+    function editarEnGithub(urlArchivo) {
+        return ubicarEnGithub(urlArchivo).then(function (g) {
+            if (!g || !g.ruta.length) return null;
+            return { editar: g.url + '/edit/' + g.rama + '/' + g.ruta.map(encodeURIComponent).join('/'), repo: g.url };
+        });
+    }
+    /* La página del catálogo: la guardada, o la carpeta en la organización si no tiene otra */
+    function paginaDelCatalogo() {
+        return catalogo.enlace || (catalogo.slug ? 'https://cfp401-ensenada.github.io/catalogos/' + catalogo.slug + '/' : '');
+    }
+    function mostrarGithub(github) {
+        // Si ya se sabe que está al día, no hace falta ir a GitHub
+        if (!github || $('d-estado').dataset.tipo === 'ok') return;
+        $('d-github').href = github.editar;
+        $('d-github').hidden = false;
+        $('d-ayuda').textContent = 'Si GitHub dice que no encuentra el archivo, entrá a tu repositorio (' +
+            github.repo.replace('https://', '') + '), abrí catalogo.js y tocá el lápiz ✏️.';
+        $('d-ayuda').hidden = false;
     }
 
     function estadoDev(tipo, texto) {
@@ -224,30 +274,32 @@ import { DE_LA_CLASE, PALETAS, coloresLegibles, paletaDeFoto } from './colores.j
         $('d-github').hidden = true;
         $('d-ayuda').hidden = true;
         var publicado = null;
+        var pagina = paginaDelCatalogo();
+        // El botón de GitHub sale del link de la página, sin esperar a leerla: aunque no se pueda
+        // revisar, el alumno llega a su catalogo.js. Si después se encuentra el que la página carga
+        // de verdad (puede estar en otra carpeta), el botón pasa a apuntar a ese.
+        var desdePagina = pagina ? editarEnGithub(new URL('catalogo.js', pagina).href) : Promise.resolve(null);
+        var exacto = false;
+        desdePagina.then(function (github) { if (!exacto) mostrarGithub(github); });
         fetch(sinCache(NUEVO_URL), { cache: 'no-store' })
             .then(function (r) { if (!r.ok) throw new Error(); return r.text(); })
             .then(function (texto) {
                 codigoNuevo = texto;
                 pintarCodigo(texto.replace(/\r\n?/g, '\n').replace(/\n$/, ''));
                 $('d-copiar').disabled = false;
-                if (!catalogo.enlace) throw new Error('sin-enlace');
-                return fetch(sinCache(catalogo.enlace), { cache: 'no-store' });
+                if (!pagina) throw new Error('sin-enlace');
+                return fetch(sinCache(pagina), { cache: 'no-store' });
             })
             .then(function (r) { if (!r.ok) throw new Error('sin-pagina'); return r.text(); })
             .then(function (html) {
                 var etiqueta = /<script[^>]*\ssrc\s*=\s*["']([^"']*catalogo\.js[^"']*)["']/i.exec(html);
                 if (!etiqueta) throw new Error('sin-script');
-                publicado = new URL(etiqueta[1], catalogo.enlace);
+                publicado = new URL(etiqueta[1], pagina);
                 publicado.search = '';
                 if (publicado.href === NUEVO_URL) throw new Error('compartido');
-                var github = editarEnGithub(publicado.href);
-                if (github) {
-                    $('d-github').href = github.editar;
-                    $('d-github').hidden = false;
-                    $('d-ayuda').textContent = 'Si GitHub dice que no encuentra el archivo, entrá a tu repositorio (' +
-                        github.repo.replace('https://', '') + '), abrí catalogo.js y tocá el lápiz ✏️.';
-                    $('d-ayuda').hidden = false;
-                }
+                editarEnGithub(publicado.href).then(function (github) {
+                    if (github) { exacto = true; mostrarGithub(github); }
+                });
                 return fetch(sinCache(publicado.href), { cache: 'no-store' });
             })
             .then(function (r) { if (!r.ok) throw new Error('sin-archivo'); return r.text(); })
