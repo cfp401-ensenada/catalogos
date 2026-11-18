@@ -127,16 +127,74 @@
             return fetch(sinCache(url), { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error(String(r.status)); return r.text(); });
         }
         function codigoNuevo() { return nuevo || (nuevo = traer(NUEVO_URL)); }
+        /* El repo de un catálogo que NO está en la organización, armado solo desde su link.
+         * Un link de GitHub Pages no dice todo: https://ana.github.io/tienda/ puede ser el repo
+         * "tienda", o la carpeta "tienda" del repo "ana.github.io". Y la rama puede ser main,
+         * master o gh-pages. Eso se le pregunta a la API pública de GitHub (sin clave: 60
+         * consultas por hora, y cada repo se pregunta una sola vez). */
+        var repos = {};
+        function infoRepo(cuenta, nombre) {
+            var clave = (cuenta + '/' + nombre).toLowerCase();
+            if (!repos[clave]) {
+                repos[clave] = fetch('https://api.github.com/repos/' + cuenta + '/' + nombre)
+                    .then(function (r) { return r.ok ? r.json() : null; })
+                    .then(function (info) {
+                        if (!info) return null;
+                        // Si tiene rama gh-pages, se publica desde ahí; si no, desde la principal
+                        return fetch('https://api.github.com/repos/' + cuenta + '/' + nombre + '/branches/gh-pages')
+                            .then(function (r) { return { url: info.html_url, rama: r.ok ? 'gh-pages' : info.default_branch }; })
+                            .catch(function () { return { url: info.html_url, rama: info.default_branch }; });
+                    })
+                    .catch(function () { return null; });
+            }
+            return repos[clave];
+        }
+        /* De un link (la página o un archivo de ella) al repo, la rama y la carpeta. Acepta también
+         * el link del repo en github.com, por si alguien pegó ese en vez del de la página. */
+        function ubicarEnGithub(link) {
+            var u;
+            try { u = new URL(link); } catch (e) { return Promise.resolve(null); }
+            var partes = u.pathname.split('/').filter(Boolean).map(decodeURIComponent);
+            if (u.hostname === 'github.com' && partes.length >= 2) {
+                return infoRepo(partes[0], partes[1]).then(function (info) {
+                    return info && { url: info.url, rama: info.rama, ruta: [] };
+                });
+            }
+            var cuenta = /^([^.]+)\.github\.io$/i.exec(u.hostname);
+            if (!cuenta) return Promise.resolve(null);   // un dominio propio: no hay forma de saber el repo
+            var usuario = cuenta[1].toLowerCase();
+            var deUsuario = function () {
+                return infoRepo(usuario, usuario + '.github.io').then(function (info) {
+                    return info && { url: info.url, rama: info.rama, ruta: partes };
+                });
+            };
+            if (!partes.length || partes[0].indexOf('.') >= 0) return deUsuario();
+            return infoRepo(usuario, partes[0]).then(function (info) {
+                return info ? { url: info.url, rama: info.rama, ruta: partes.slice(1) } : deUsuario();
+            });
+        }
+        function carpeta(ruta) {
+            // Sin el archivo del final (index.html), solo las carpetas
+            var c = ruta.slice();
+            if (c.length && c[c.length - 1].indexOf('.') >= 0) c.pop();
+            return c.length ? '/' + c.map(encodeURIComponent).join('/') : '';
+        }
         function repoDe(cat) {
             if (!cat.enlace || cat.enlace.indexOf('cfp401-ensenada.github.io/catalogos') >= 0) {
-                return { ver: REPO_CFP + '/tree/main/' + cat.slug, subir: REPO_CFP + '/upload/main/' + cat.slug };
+                return Promise.resolve({ ver: REPO_CFP + '/tree/main/' + cat.slug, subir: REPO_CFP + '/upload/main/' + cat.slug });
             }
-            var u = new URL(cat.enlace);
-            var cuenta = /^([^.]+)\.github\.io$/i.exec(u.hostname);
-            if (!cuenta) return null;
-            var partes = u.pathname.split('/').filter(Boolean);
-            var base = 'https://github.com/' + cuenta[1] + '/' + (partes[0] || cuenta[1] + '.github.io');
-            return { ver: base, subir: base + '/upload/main', editar: base + '/edit/main/catalogo.js' };
+            return ubicarEnGithub(cat.enlace).then(function (g) {
+                if (!g) return null;
+                var dir = carpeta(g.ruta);
+                return { ver: g.url + '/tree/' + g.rama + dir, subir: g.url + '/upload/' + g.rama + dir };
+            });
+        }
+        /* El editor de GitHub del catalogo.js que la página carga de verdad (puede estar en otra
+         * carpeta que la página). */
+        function editarEnGithub(urlArchivo) {
+            return ubicarEnGithub(urlArchivo).then(function (g) {
+                return g && g.ruta.length ? g.url + '/edit/' + g.rama + '/' + g.ruta.map(encodeURIComponent).join('/') : null;
+            });
         }
         function enlace(texto, href) {
             var a = document.createElement('a');
@@ -154,13 +212,23 @@
             estado.textContent = 'Mirando…';
             var acciones = document.createElement('div');
             acciones.className = 'acciones';
-            var repo = repoDe(cat);
-            if (repo) acciones.append(enlace('📁 Repo', repo.ver), enlace('⬆️ Subir archivos', repo.subir));
+            var repo = document.createElement('span');
+            repo.className = 'acciones';
+            repoDe(cat).then(function (r) {
+                if (r) repo.append(enlace('📁 Repo', r.ver), enlace('⬆️ Subir archivos', r.subir));
+                else {
+                    var nota = document.createElement('span');
+                    nota.className = 'nota';
+                    nota.textContent = 'No se encontró su repo en GitHub';
+                    repo.append(nota);
+                }
+            });
+            acciones.append(repo);
             td.append(estado, acciones);
-            revisar(cat, estado, acciones, repo);
+            revisar(cat, estado, acciones);
             return td;
         }
-        function revisar(cat, estado, acciones, repo) {
+        function revisar(cat, estado, acciones) {
             var pagina = enlaceDe(cat);
             var publicado;
             codigoNuevo()
@@ -185,7 +253,9 @@
                             navigator.clipboard.writeText(n).then(function () { copiar.textContent = '✅ Copiado: pegalo en GitHub'; });
                         });
                         acciones.prepend(copiar);
-                        if (repo && repo.editar) acciones.append(enlace('✏️ Editar catalogo.js', repo.editar));
+                        return editarEnGithub(publicado.href).then(function (editar) {
+                            if (editar) acciones.append(enlace('✏️ Editar catalogo.js', editar));
+                        });
                     });
                 })
                 .catch(function (error) {
