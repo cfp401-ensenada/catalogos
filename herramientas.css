@@ -146,6 +146,9 @@ th { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; colo
 textarea.mensaje { min-height: 9rem; font-size: 0.95rem; }
 .peligro-texto { color: var(--peligro); }
 .baja { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--peligro); border-radius: 10px; }
+/* Editar un catálogo: el mismo formulario en línea, sin el rojo de peligro */
+.baja.edicion { border-color: var(--acento); }
+.baja.edicion label { display: grid; gap: 4px; }
 /* "Cómo se ve": los colores y la muestra del catálogo */
 .colores { display: flex; flex-wrap: wrap; gap: 12px 20px; }
 .colores label { font-weight: 600; gap: 8px; align-items: center; }

@@ -212,6 +212,8 @@
             estado.textContent = 'Mirando…';
             var acciones = document.createElement('div');
             acciones.className = 'acciones';
+            // La página que se revisa, para ver de un vistazo si el link guardado es el bueno
+            acciones.append(enlace('🔗 Página', enlaceDe(cat)));
             var repo = document.createElement('span');
             repo.className = 'acciones';
             repoDe(cat).then(function (r) {
@@ -262,7 +264,7 @@
                     var por = error && error.message;
                     if (por === 'compartido') estado.textContent = '✅ Usa el compartido (se actualiza solo)';
                     else if (por === 'sin-script') estado.textContent = '❔ Su página no carga catalogo.js';
-                    else if (por === '404') estado.textContent = '❔ Todavía no está publicada';
+                    else if (por === '404') estado.textContent = '❔ No está en ese link (si está publicada en otro lado, corregilo con ✏️ Editar)';
                     else estado.textContent = '❔ No se pudo revisar';
                 });
         }
@@ -280,6 +282,12 @@
                     });
                     tr.appendChild(celdaDev(cat));
                     var td = document.createElement('td');
+                    var editar = document.createElement('button');
+                    editar.type = 'button';
+                    editar.className = 'enlace';
+                    editar.textContent = '✏️ Editar';
+                    editar.addEventListener('click', function () { pedirEdicion(cat, tr); });
+                    td.appendChild(editar);
                     var b = document.createElement('button');
                     b.type = 'button';
                     b.className = 'enlace';
@@ -307,6 +315,64 @@
                     return tr;
                 }));
             });
+        }
+
+        /* Editar el nombre o el link de un catálogo, en una fila debajo del suyo. La dirección no
+         * se cambia: es la clave de sus datos, su código y sus fotos. */
+        function pedirEdicion(cat, fila) {
+            var vieja = document.getElementById('editar-catalogo');
+            if (vieja) vieja.remove();
+            var tr = document.createElement('tr');
+            tr.id = 'editar-catalogo';
+            var td = document.createElement('td');
+            td.colSpan = 6;
+            var form = document.createElement('form');
+            form.className = 'baja edicion';
+            var titulo = document.createElement('p');
+            titulo.textContent = 'Editar ' + cat.nombre + ' (' + cat.slug + ')';
+            var lNombre = document.createElement('label');
+            lNombre.textContent = 'Nombre del emprendimiento';
+            var nombre = document.createElement('input');
+            nombre.maxLength = 80;
+            nombre.required = true;
+            nombre.value = cat.nombre;
+            lNombre.appendChild(nombre);
+            var lEnlace = document.createElement('label');
+            lEnlace.textContent = 'Link del catálogo (vacío: la carpeta en la organización)';
+            var link = document.createElement('input');
+            link.type = 'url';
+            link.placeholder = 'https://usuario.github.io/catalogo/';
+            link.value = cat.enlace && cat.enlace.indexOf('cfp401-ensenada.github.io/catalogos/') < 0 ? cat.enlace : '';
+            lEnlace.appendChild(link);
+            var guardar = document.createElement('button');
+            guardar.type = 'submit';
+            guardar.className = 'principal';
+            guardar.textContent = 'Guardar';
+            var cancelar = document.createElement('button');
+            cancelar.type = 'button';
+            cancelar.className = 'enlace';
+            cancelar.textContent = 'Cancelar';
+            cancelar.addEventListener('click', function () { tr.remove(); });
+            var error = document.createElement('p');
+            error.className = 'error';
+            form.append(titulo, lNombre, lEnlace, guardar, cancelar, error);
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+                guardar.disabled = true;
+                error.textContent = '';
+                pedir('/admin/editar', 'POST', { slug: cat.slug, nombre: nombre.value.trim(), enlace: link.value.trim() })
+                    .then(function () { tr.remove(); return cargar(); })
+                    .catch(function (err) {
+                        error.textContent = err.message === 'No encontrado'
+                            ? 'El Worker todavía no sabe editar: falta publicarlo (npx wrangler deploy -c worker/wrangler.catalogos.toml).'
+                            : err.message;
+                    })
+                    .then(function () { guardar.disabled = false; });
+            });
+            td.appendChild(form);
+            tr.appendChild(td);
+            fila.after(tr);
+            nombre.focus();
         }
 
         /* La baja pide la clave otra vez, escrita en el momento: no alcanza con haber entrado. */
